@@ -1,15 +1,15 @@
 [package]
-name = "stress-riser"
+name = "stress-raiser"
 version = "1.0.0"
 edition = "2021"
 description = "Beautiful Rust stress tester with form input and live TUI"
 readme = "README.md"
 license = "MIT"
-repository = "https://github.com/z19r/stress-riser"
-homepage = "https://github.com/z19r/stress-riser"
+repository = "https://github.com/z19r/stress-raiser"
+homepage = "https://github.com/z19r/stress-raiser"
 keywords = ["load-test", "tui", "ratatui", "http", "benchmark"]
 categories = ["development-tools", "command-line-utilities"]
-authors = ["stress-riser zackkitzmiller"]
+authors = ["stress-raiser zackkitzmiller"]
 
 [dependencies]
 anyhow = "1.0"

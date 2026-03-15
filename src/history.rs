@@ -8,7 +8,7 @@ use std::fs;
 use std::path::PathBuf;
 
 const HISTORY_LEN: usize = 50;
-const HISTORY_FILE: &str = "stress-riser/history.json";
+const HISTORY_FILE: &str = "stress-raiser/history.json";
 
 /// One saved form state (URL, method, headers, body, concurrency, RPM).
 #[derive(Debug, Clone, Serialize, Deserialize)]

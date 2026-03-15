@@ -1,4 +1,4 @@
-# stress-riser
+# stress-raiser
 
 Beautiful Rust stress tester with a form (URL, method, headers, body) and a
 live TUI: stats, circuit breaker, and sparklines.
@@ -73,9 +73,9 @@ The app has two phases:
 
 History is stored in:
 
-- `$XDG_DATA_HOME/stress-riser/history.json` if `XDG_DATA_HOME` is set
-- Otherwise `~/.local/share/stress-riser/history.json`
-- Otherwise `./stress-riser/history.json`
+- `$XDG_DATA_HOME/stress-raiser/history.json` if `XDG_DATA_HOME` is set
+- Otherwise `~/.local/share/stress-raiser/history.json`
+- Otherwise `./stress-raiser/history.json`
 
 Persistence is best-effort; missing or invalid files are ignored.
 

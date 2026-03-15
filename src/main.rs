@@ -2,9 +2,9 @@
 
 use anyhow::Result;
 use std::sync::Arc;
-use stress_riser::history;
-use stress_riser::stats::Stats;
-use stress_riser::tui::{run_form, run_tui, RunResult};
+use stress_raiser::history;
+use stress_raiser::stats::Stats;
+use stress_raiser::tui::{run_form, run_tui, RunResult};
 use tokio::sync::RwLock;
 
 #[tokio::main]
@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
     loop {
         let (request, conc_init, rpm_init) = match run_form(init, &mut hist).await {
             Ok(t) => t,
-            Err(stress_riser::AppError::UserCancelled) => std::process::exit(0),
+            Err(stress_raiser::AppError::UserCancelled) => std::process::exit(0),
             Err(e) => return Err(e.into()),
         };
 

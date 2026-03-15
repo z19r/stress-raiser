@@ -1,25 +1,35 @@
-# Stress riser - beautiful Rust stress testing TUI
-# Run with no params: just
+# Stress raiser - beautiful Rust stress testing TUI
 
+# Show this help
 default:
+  just --list
+
+# Run the stress-test TUI
+run:
   cargo run
 
+# Build debug
 build:
   cargo build
 
+# Build release binary
 build-release:
   cargo build --release
 
+# Run tests
 test:
   cargo test
 
+# Format code
 fmt:
   cargo fmt
 
+# Check + clippy
 check:
   cargo check
   cargo clippy
 
+# Build and open API docs
 doc:
   cargo doc --no-deps --open
 
