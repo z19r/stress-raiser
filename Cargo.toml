@@ -1,0 +1,23 @@
+[package]
+name = "stress-riser"
+version = "1.0.0"
+edition = "2021"
+description = "Beautiful Rust stress tester with form input and live TUI"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/z19r/stress-riser"
+homepage = "https://github.com/z19r/stress-riser"
+keywords = ["load-test", "tui", "ratatui", "http", "benchmark"]
+categories = ["development-tools", "command-line-utilities"]
+authors = ["stress-riser zackkitzmiller"]
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
+crossterm = { version = "0.28", features = ["bracketed-paste"] }
+ratatui = "0.29"
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+unicode-segmentation = "1.10"
