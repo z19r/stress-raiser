@@ -1,4 +1,4 @@
-//! Load-test dashboard: event loop, worker, and UI (stats, circuit breaker, spiral).
+//! Load-test dashboard: event loop, worker, and UI (stats, circuit breaker, charts).
 
 use crate::curl::CurlRequest;
 use crate::stats::{CircuitState, Stats};
@@ -8,7 +8,7 @@ use ratatui::{
     symbols,
     widgets::{
         canvas::{Canvas, Line as CanvasLine},
-        Block, Borders, Gauge, Paragraph, Sparkline, Wrap,
+        Bar, BarChart, BarGroup, Block, BorderType, Borders, Cell, Gauge, Paragraph, Row, Table,
     },
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -18,8 +18,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
-use super::RunResult;
-use super::{ACCENT, ACCENT2, BG, ERROR, FG, MUTED, SUCCESS, SURFACE};
+use super::{RunResult, TestConfig};
+use super::{confirm_quit, render_banner, render_thin_shadow, ACCENT, ACCENT2, BG, BORDER, ERROR, FG, MUTED, SUCCESS, SURFACE};
 
 pub(super) async fn load_worker(
     client: reqwest::Client,
@@ -28,6 +28,8 @@ pub(super) async fn load_worker(
     concurrency: Arc<RwLock<usize>>,
     rpm: Arc<RwLock<u64>>,
     running: Arc<RwLock<bool>>,
+    total_limit: Option<u64>,
+    duration_limit: Option<Duration>,
 ) {
     let in_flight = Arc::new(AtomicUsize::new(0));
     let mut next_tick = Instant::now();
@@ -35,6 +37,17 @@ pub(super) async fn load_worker(
     loop {
         if !*running.read().await {
             break;
+        }
+
+        {
+            let st = stats.read().await;
+            let hit_total = total_limit.is_some_and(|lim| st.total >= lim);
+            let hit_duration = duration_limit.is_some_and(|dur| st.test_elapsed >= dur);
+            if hit_total || hit_duration {
+                drop(st);
+                *running.write().await = false;
+                break;
+            }
         }
 
         let r = *rpm.read().await;
@@ -119,6 +132,8 @@ pub(super) async fn run_loop(
     concurrency: Arc<RwLock<usize>>,
     rpm: Arc<RwLock<u64>>,
     running: Arc<RwLock<bool>>,
+    total_limit: Option<u64>,
+    duration_limit: Option<Duration>,
 ) -> anyhow::Result<RunResult> {
     let (tx, rx) = mpsc::channel();
     let rx = Arc::new(Mutex::new(rx));
@@ -135,6 +150,7 @@ pub(super) async fn run_loop(
     let mut tick = tokio::time::interval(Duration::from_millis(200));
     let poll_timeout = Duration::from_millis(50);
     let request_clone = request.clone();
+    let mut tick_count: u64 = 0;
 
     loop {
         stats.write().await.tick_rps();
@@ -154,7 +170,14 @@ pub(super) async fn run_loop(
         if let Some(Event::Key(e)) = ev_opt {
             if e.kind == KeyEventKind::Press {
                 if let Some(action) = handle_key(e, &concurrency, &rpm, &running).await {
-                    return Ok(action);
+                    match action {
+                        RunResult::Quit => {
+                            if confirm_quit(terminal) {
+                                return Ok(RunResult::Quit);
+                            }
+                        }
+                        other => return Ok(other),
+                    }
                 }
             }
         }
@@ -164,14 +187,17 @@ pub(super) async fn run_loop(
         let st = stats.read().await.clone();
         let conc = *concurrency.read().await;
         let rpm_val = *rpm.read().await;
-        terminal.draw(|f| ui(f, &request_clone, &st, conc, rpm_val))?;
+        tick_count += 1;
+        terminal.draw(|f| ui(f, &request_clone, &st, conc, rpm_val, total_limit, duration_limit, tick_count))?;
 
         if !*running.read().await {
-            return Ok(RunResult::BackToForm((
-                request_clone.clone(),
-                conc,
-                rpm_val,
-            )));
+            return Ok(RunResult::BackToForm(TestConfig {
+                request: request_clone.clone(),
+                concurrency: conc,
+                rpm: rpm_val,
+                total_requests: total_limit,
+                duration_secs: duration_limit.map(|d| d.as_secs()),
+            }));
         }
     }
 }
@@ -209,190 +235,147 @@ async fn handle_key(
     None
 }
 
-fn ui(f: &mut Frame, request: &CurlRequest, stats: &Stats, conc: usize, rpm_val: u64) {
+fn ui(
+    f: &mut Frame,
+    request: &CurlRequest,
+    stats: &Stats,
+    conc: usize,
+    rpm_val: u64,
+    total_limit: Option<u64>,
+    duration_limit: Option<Duration>,
+    tick_count: u64,
+) {
     let circuit_active = !matches!(stats.circuit.state, CircuitState::Closed);
     let area = f.area();
-    const MIN_SPIRAL_WIDTH: u16 = 50;
-    const MIN_SPIRAL_HEIGHT: u16 = 18;
-    let show_spiral = circuit_active && area.width >= MIN_SPIRAL_WIDTH && area.height >= 42;
+    f.render_widget(Block::default().style(Style::default().bg(BG)), area);
+    let area = Rect::new(area.x, area.y, area.width.saturating_sub(2), area.height);
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(6),
-            Constraint::Length(6),
-            Constraint::Min(6),
-            Constraint::Length(6),
-            Constraint::Length(4),
-            Constraint::Length(3),
-            Constraint::Length(if show_spiral { MIN_SPIRAL_HEIGHT } else { 0 }),
+            Constraint::Length(4),  // 0: banner
+            Constraint::Length(1),  // 1: method + url
+            Constraint::Length(4),  // 2: circuit breaker
+            Constraint::Length(6),  // 3: stats + status codes (side-by-side)
+            Constraint::Min(4),    // 4: RPS braille chart (full width, grows)
+            Constraint::Length(7),  // 5: response log table
+            Constraint::Length(3),  // 6: success rate gauge
+            Constraint::Length(3),  // 7: conc + rpm dials
+            Constraint::Length(1),  // 8: footer
         ])
         .split(area);
 
-    let url = truncate(&request.url, chunks[0].width as usize - 4);
-    let method = request.method.as_str();
-    let header = Paragraph::new(format!("{} {}", method, url))
-        .block(
-            Block::default()
-                .borders(Borders::BOTTOM)
-                .border_style(Style::default().fg(ACCENT))
-                .style(Style::default().bg(BG)),
-        )
-        .style(Style::default().fg(FG));
-    f.render_widget(header, chunks[0]);
+    // ── 0: Banner ──
+    render_banner(f, chunks[0]);
 
+    // ── 1: Method + URL ──
+    let url = truncate(&request.url, chunks[1].width as usize - 12);
+    let method = request.method.as_str();
+    let method_url = Paragraph::new(Line::from(vec![
+        Span::styled(
+            format!("  {} ", method),
+            Style::default().fg(BG).bg(ACCENT).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(format!(" {}", url), Style::default().fg(MUTED)),
+    ]))
+    .style(Style::default().bg(BG));
+    f.render_widget(method_url, chunks[1]);
+
+    // ── 1: Circuit Breaker ──
     let now = std::time::Instant::now();
-    let (_, detail) = stats.circuit.display(now);
     let (cb_color, border_color) = match stats.circuit.state {
-        CircuitState::Closed => (SUCCESS, SUCCESS),
-        CircuitState::Open { .. } => (ERROR, ERROR),
+        CircuitState::Closed => (SUCCESS, BORDER),
+        CircuitState::Open { .. } => {
+            let pulse = if tick_count % 4 < 2 { ERROR } else { ACCENT };
+            (ERROR, pulse)
+        }
         CircuitState::HalfOpen { .. } => (ACCENT2, ACCENT2),
     };
     let (lever, lever_desc) = match stats.circuit.state {
-        CircuitState::Closed => ("▲", "ON "),
-        CircuitState::Open { .. } => ("▼", "TRIP"),
-        CircuitState::HalfOpen { .. } => ("◐", "TEST"),
+        CircuitState::Closed => ("▲", "CLOSED"),
+        CircuitState::Open { .. } => ("▼", "OPEN"),
+        CircuitState::HalfOpen { .. } => ("◐", "HALF-OPEN"),
     };
-    let bad_str = if stats.circuit.consecutive_bad > 0 {
-        format!("  ({} bad in a row)", stats.circuit.consecutive_bad)
-    } else {
-        String::new()
+    let bad = stats.circuit.consecutive_bad;
+    let threshold = crate::stats::CIRCUIT_CONSECUTIVE_THRESHOLD;
+    let cb_detail: Vec<Span> = match stats.circuit.state {
+        CircuitState::Closed => {
+            vec![
+                Span::styled(format!("errors: {bad}/{threshold}"), Style::default().fg(if bad > 0 { ACCENT } else { MUTED })),
+                Span::styled("  sending requests", Style::default().fg(MUTED)),
+            ]
+        }
+        CircuitState::Open { open_until } => {
+            let rem = if now >= open_until { 0 } else { open_until.duration_since(now).as_secs() };
+            let fib = crate::stats::fib_secs(stats.circuit.open_count);
+            vec![
+                Span::styled(format!("tripped at {bad} errors"), Style::default().fg(ERROR)),
+                Span::styled(format!("  backoff: {fib}s"), Style::default().fg(MUTED)),
+                Span::styled(format!("  retry in {rem}s"), Style::default().fg(ACCENT)),
+            ]
+        }
+        CircuitState::HalfOpen { probe_sent } => {
+            if probe_sent {
+                vec![Span::styled("probe sent, awaiting response…", Style::default().fg(ACCENT2))]
+            } else {
+                vec![Span::styled("sending 1 probe request…", Style::default().fg(ACCENT2))]
+            }
+        }
     };
-    let breaker_art = vec![
-        Line::from(Span::styled(" ┌──┐ ", Style::default().fg(cb_color))),
-        Line::from(Span::styled(
-            format!(" │{} │ ", lever),
-            Style::default().fg(cb_color),
-        )),
-        Line::from(Span::styled(" └──┘ ", Style::default().fg(cb_color))),
-    ];
-    let breaker_block = Paragraph::new(breaker_art).style(Style::default().fg(cb_color));
-    let status_line = Line::from(vec![
+    let mut cb_spans = vec![
         Span::styled(
-            format!(" {} ", lever_desc),
+            format!(" {} {} ", lever, lever_desc),
             Style::default().fg(cb_color).add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" — ", Style::default().fg(MUTED)),
-        Span::styled(detail, Style::default().fg(FG)),
-        Span::styled(bad_str, Style::default().fg(MUTED)),
-    ]);
-    let circuit_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(8), Constraint::Min(10)])
-        .split(chunks[1]);
-    f.render_widget(breaker_block, circuit_chunks[0]);
-    let status_para = Paragraph::new(status_line)
-        .block(
-            Block::default()
-                .title(" Circuit breaker ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(border_color))
-                .style(Style::default().bg(SURFACE)),
-        )
-        .style(Style::default().fg(FG));
-    f.render_widget(status_para, circuit_chunks[1]);
-
-    let headers = request.headers_display();
-    let body = request.body_preview();
-    let header_lines: Vec<Line> = headers
-        .iter()
-        .map(|h| Line::from(Span::styled(h, Style::default().fg(MUTED))))
-        .collect();
-    let body_lines: Vec<Line> = body
-        .lines()
-        .take(3)
-        .map(|l| Line::from(Span::styled(truncate(l, 76), Style::default().fg(FG))))
-        .collect();
-    let req_lines = if header_lines.is_empty() && body_lines.is_empty() {
-        vec![Line::from(Span::styled(
-            "(no headers or body)",
-            Style::default().fg(MUTED),
-        ))]
-    } else {
-        let mut out = vec![];
-        if !header_lines.is_empty() {
-            out.push(Line::from(Span::styled(
-                "Headers:",
-                Style::default().fg(ACCENT2),
-            )));
-            out.extend(header_lines.into_iter().take(4));
-        }
-        if !body_lines.is_empty() {
-            out.push(Line::from(Span::styled(
-                "Body:",
-                Style::default().fg(ACCENT2),
-            )));
-            out.extend(body_lines);
-        }
-        out
-    };
-    let req_block = Paragraph::new(req_lines)
-        .block(
-            Block::default()
-                .title(" Request (headers + body) ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(SURFACE))
-                .style(Style::default().bg(SURFACE)),
-        )
-        .wrap(Wrap::default());
-    f.render_widget(req_block, chunks[2]);
-
-    let log_lines: Vec<Line> = stats
-        .response_log
-        .iter()
-        .rev()
-        .take(5)
-        .map(|e| {
-            let status_color = if e.ok { SUCCESS } else { ERROR };
-            let body = truncate(&e.body_preview, 70);
-            Line::from(vec![
-                Span::styled(format!("{} ", e.status), Style::default().fg(status_color)),
-                Span::raw(body),
-            ])
-        })
-        .collect();
-    let log_block = Paragraph::new(if log_lines.is_empty() {
-        vec![Line::from(Span::styled(
-            "(responses will appear here)",
-            Style::default().fg(MUTED),
-        ))]
-    } else {
-        log_lines
-    })
+        Span::styled(" │ ", Style::default().fg(BORDER)),
+    ];
+    cb_spans.extend(cb_detail);
+    let cb_para = Paragraph::new(Line::from(cb_spans))
     .block(
         Block::default()
-            .title(" Response log (status + body) ")
+            .title(" Circuit Breaker ")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(SURFACE))
+            .border_type(BorderType::Plain)
+            .border_style(Style::default().fg(border_color))
             .style(Style::default().bg(SURFACE)),
-    )
-    .wrap(Wrap::default());
-    f.render_widget(log_block, chunks[3]);
+    );
+    render_thin_shadow(f, chunks[2], if circuit_active { ERROR } else { ACCENT });
+    f.render_widget(cb_para, chunks[2]);
 
-    let main_chunks = Layout::default()
+    // ── 2: Stats + Status Codes side-by-side ──
+    let stats_cols = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(chunks[4]);
+        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+        .split(chunks[3]);
 
     let stats_text = vec![
         Line::from(vec![
             Span::styled("Total ", Style::default().fg(MUTED)),
-            Span::raw(format!("{} ", stats.total)),
+            Span::styled(format!("{}", stats.total), Style::default().fg(FG)),
             Span::styled("  OK ", Style::default().fg(MUTED)),
-            Span::styled(format!("{} ", stats.ok), Style::default().fg(SUCCESS)),
+            Span::styled(format!("{}", stats.ok), Style::default().fg(SUCCESS)),
             Span::styled("  Err ", Style::default().fg(MUTED)),
             Span::styled(format!("{}", stats.err), Style::default().fg(ERROR)),
         ]),
         Line::from(vec![
             Span::styled("RPS ", Style::default().fg(MUTED)),
-            Span::styled(format!("{} ", stats.rps()), Style::default().fg(ACCENT2)),
+            Span::styled(
+                format!("{}", stats.rps()),
+                Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+            ),
             Span::styled("  p50 ", Style::default().fg(MUTED)),
-            Span::raw(format!("{}ms ", stats.p50())),
-            Span::styled(" p95 ", Style::default().fg(MUTED)),
-            Span::raw(format!("{}ms ", stats.p95())),
-            Span::styled(" p99 ", Style::default().fg(MUTED)),
-            Span::raw(format!("{}ms", stats.p99())),
+            Span::styled(format!("{}ms", stats.p50()), Style::default().fg(ACCENT2)),
+            Span::styled("  p95 ", Style::default().fg(MUTED)),
+            Span::styled(format!("{}ms", stats.p95()), Style::default().fg(ACCENT2)),
+            Span::styled("  p99 ", Style::default().fg(MUTED)),
+            Span::styled(format!("{}ms", stats.p99()), Style::default().fg(ACCENT2)),
+        ]),
+        Line::from(vec![
+            Span::styled("Elapsed ", Style::default().fg(MUTED)),
+            Span::styled(
+                format!("{:.1}s", stats.test_elapsed.as_secs_f64()),
+                Style::default().fg(FG),
+            ),
         ]),
     ];
     let stats_block = Paragraph::new(stats_text)
@@ -400,173 +383,316 @@ fn ui(f: &mut Frame, request: &CurlRequest, stats: &Stats, conc: usize, rpm_val:
             Block::default()
                 .title(" Stats ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(SURFACE))
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(BORDER))
                 .style(Style::default().bg(SURFACE)),
         )
         .style(Style::default().fg(FG));
-    f.render_widget(stats_block, main_chunks[0]);
+    let stats_rect = inset(stats_cols[0], 2, 1);
+    render_thin_shadow(f, stats_rect, ACCENT);
+    f.render_widget(stats_block, stats_rect);
 
+    // Status code BarChart
+    let mut codes: Vec<(String, u64)> = stats
+        .status_codes
+        .iter()
+        .map(|(&code, &count)| (code.to_string(), count))
+        .collect();
+    codes.sort_by_key(|(c, _)| c.clone());
+    let codes_rect = inset(stats_cols[1], 0, 1);
+    render_thin_shadow(f, codes_rect, ACCENT);
+    if codes.is_empty() {
+        let placeholder = Paragraph::new(Span::styled("(no responses)", Style::default().fg(MUTED)))
+            .block(
+                Block::default()
+                    .title(" Status Codes ")
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(BORDER))
+                    .style(Style::default().bg(SURFACE)),
+            );
+        f.render_widget(placeholder, codes_rect);
+    } else {
+        let bars: Vec<Bar> = codes
+            .iter()
+            .map(|(label, val)| {
+                let code: u16 = label.parse().unwrap_or(0);
+                let color = if code < 300 {
+                    SUCCESS
+                } else if code < 400 {
+                    ACCENT2
+                } else if code < 500 {
+                    ACCENT
+                } else {
+                    ERROR
+                };
+                Bar::default()
+                    .value(*val)
+                    .label(Line::from(label.clone()))
+                    .style(Style::default().fg(color))
+                    .value_style(Style::default().fg(BG).bg(color).add_modifier(Modifier::BOLD))
+            })
+            .collect();
+        let chart = BarChart::default()
+            .block(
+                Block::default()
+                    .title(" Status Codes ")
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(BORDER))
+                    .style(Style::default().bg(SURFACE)),
+            )
+            .data(BarGroup::default().bars(&bars))
+            .bar_width(5)
+            .bar_gap(1)
+            .direction(Direction::Vertical);
+        f.render_widget(chart, codes_rect);
+    }
+
+    // ── 3: RPS Braille Chart (full width) ──
     let spark_data = stats.sparkline_data();
-    let max = spark_data.iter().copied().max().unwrap_or(1).max(1);
-    let spark = Sparkline::default()
-        .block(
-            Block::default()
-                .title(" RPS over time ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(SURFACE))
-                .style(Style::default().bg(SURFACE)),
-        )
-        .data(&spark_data)
-        .style(Style::default().fg(ACCENT2))
-        .max(max);
-    f.render_widget(spark, main_chunks[1]);
+    let max_rps = spark_data.iter().copied().max().unwrap_or(1).max(1) as f64;
+    let data_len = spark_data.len();
+    let rps_block = Block::default()
+        .title(format!(" RPS  (max: {}) ", max_rps as u64))
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(BORDER))
+        .style(Style::default().bg(SURFACE));
+    let y_top = max_rps * 1.1;
+    let rps_canvas = Canvas::default()
+        .block(rps_block)
+        .x_bounds([0.0, data_len as f64])
+        .y_bounds([0.0, y_top])
+        .marker(symbols::Marker::Braille)
+        .paint(move |ctx| {
+            if data_len < 2 {
+                return;
+            }
+            let baseline = max_rps * 0.5;
+            ctx.draw(&CanvasLine::new(0.0, baseline, data_len as f64, baseline, BORDER));
+            for i in 1..data_len {
+                let x0 = i as f64 - 1.0;
+                let x1 = i as f64;
+                let y0 = spark_data[i - 1] as f64;
+                let y1 = spark_data[i] as f64;
+                let color = if y1 < baseline { ERROR } else { ACCENT };
+                ctx.draw(&CanvasLine::new(x0, y0, x1, y1, color));
+            }
+        });
 
+    let chart_area = chunks[4];
+    let chart_cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(8), Constraint::Min(1)])
+        .split(chart_area);
+
+    let label_height = chart_cols[0].height;
+    let top_label = format!("{} rps", y_top as u64);
+    let mid_label = format!("{}", (max_rps * 0.5) as u64);
+    let mut label_lines: Vec<Line> = Vec::new();
+    if label_height >= 3 {
+        label_lines.push(Line::from(Span::styled(&top_label, Style::default().fg(MUTED))).alignment(Alignment::Right));
+        let pad = (label_height - 3) / 2;
+        for _ in 0..pad {
+            label_lines.push(Line::from(""));
+        }
+        label_lines.push(Line::from(Span::styled(&mid_label, Style::default().fg(MUTED))).alignment(Alignment::Right));
+        let remaining = label_height.saturating_sub(label_lines.len() as u16 + 1);
+        for _ in 0..remaining {
+            label_lines.push(Line::from(""));
+        }
+        label_lines.push(Line::from(Span::styled("0", Style::default().fg(MUTED))).alignment(Alignment::Right));
+    }
+    let y_axis = Paragraph::new(label_lines).style(Style::default().bg(BG));
+    f.render_widget(y_axis, chart_cols[0]);
+
+    let rps_rect = inset(chart_cols[1], 0, 1);
+    render_thin_shadow(f, rps_rect, ACCENT);
+    f.render_widget(rps_canvas, rps_rect);
+
+    // ── 4: Response Log Table ──
+    let log_block = Block::default()
+        .title(" Response Log ")
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(BORDER))
+        .style(Style::default().bg(SURFACE));
+    let log_rect = inset(chunks[5], 0, 1);
+    render_thin_shadow(f, log_rect, ACCENT);
+    if stats.response_log.is_empty() {
+        let placeholder = Paragraph::new(Span::styled(
+            " (responses will appear here)",
+            Style::default().fg(MUTED),
+        ))
+        .block(log_block);
+        f.render_widget(placeholder, log_rect);
+    } else {
+        let max_rows = (log_rect.height.saturating_sub(3)) as usize;
+        let rows: Vec<Row> = stats
+            .response_log
+            .iter()
+            .rev()
+            .take(max_rows)
+            .enumerate()
+            .map(|(i, e)| {
+                let status_color = if e.ok { SUCCESS } else { ERROR };
+                let preview = truncate(&e.body_preview, 50);
+                let bg = if i % 2 == 0 { SURFACE } else { BG };
+                Row::new(vec![
+                    Cell::from(Span::styled(
+                        format!("{}", e.status),
+                        Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+                    )),
+                    Cell::from(Span::styled(
+                        format!("{}ms", e.latency_ms),
+                        Style::default().fg(ACCENT2),
+                    )),
+                    Cell::from(Span::styled(preview, Style::default().fg(MUTED))),
+                ])
+                .style(Style::default().bg(bg))
+            })
+            .collect();
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Length(6),
+                Constraint::Length(8),
+                Constraint::Min(20),
+            ],
+        )
+        .header(
+            Row::new(vec![
+                Cell::from(Span::styled("Code", Style::default().fg(FG).add_modifier(Modifier::BOLD))),
+                Cell::from(Span::styled("Latency", Style::default().fg(FG).add_modifier(Modifier::BOLD))),
+                Cell::from(Span::styled("Preview", Style::default().fg(FG).add_modifier(Modifier::BOLD))),
+            ])
+            .style(Style::default().bg(SURFACE))
+            .bottom_margin(0),
+        )
+        .block(log_block);
+        f.render_widget(table, log_rect);
+    }
+
+    // ── 5: Success Rate Gauge ──
     let success = stats.success_rate();
     let success_gauge = Gauge::default()
         .gauge_style(if success >= 0.99 {
-            Style::default().fg(SUCCESS)
+            Style::default().fg(SUCCESS).bg(BG)
         } else if success >= 0.9 {
-            Style::default().fg(ACCENT)
+            Style::default().fg(ACCENT).bg(BG)
         } else {
-            Style::default().fg(ERROR)
+            Style::default().fg(ERROR).bg(BG)
         })
         .block(
             Block::default()
-                .title(" Success rate ")
+                .title(" Success Rate ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(SURFACE))
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(BORDER))
                 .style(Style::default().bg(SURFACE)),
         )
         .ratio(success)
-        .label(Span::raw(format!("{:.1}%", success * 100.0)));
-    f.render_widget(success_gauge, chunks[5]);
+        .label(Span::styled(
+            format!("{:.1}%", success * 100.0),
+            Style::default().fg(FG).add_modifier(Modifier::BOLD),
+        ));
+    render_thin_shadow(f, chunks[6], ACCENT);
+    f.render_widget(success_gauge, chunks[6]);
 
+    // ── 6: Concurrency + RPM Dials ──
     let dial_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(chunks[6]);
+        .split(chunks[7]);
 
-    let conc_pct = (conc as f64 / 500.0 * 100.0).min(100.0);
+    let conc_pct = (conc as f64 / 500.0).min(1.0);
     let conc_gauge = Gauge::default()
-        .gauge_style(Style::default().fg(ACCENT))
+        .gauge_style(Style::default().fg(ACCENT).bg(BG))
         .block(
             Block::default()
-                .title(" Concurrency (↑/↓) ")
+                .title(" Concurrency ↑/↓ ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(SURFACE))
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(BORDER))
                 .style(Style::default().bg(SURFACE)),
         )
-        .ratio(conc_pct / 100.0)
-        .label(Span::raw(format!("{} workers", conc)));
-    f.render_widget(conc_gauge, dial_chunks[0]);
+        .ratio(conc_pct)
+        .label(Span::styled(
+            format!("{} workers", conc),
+            Style::default().fg(FG).add_modifier(Modifier::BOLD),
+        ));
+    let conc_rect = inset(dial_chunks[0], 2, 0);
+    render_thin_shadow(f, conc_rect, ACCENT);
+    f.render_widget(conc_gauge, conc_rect);
 
-    let rpm_pct = (rpm_val as f64 / 6000.0 * 100.0).min(100.0);
+    let rpm_pct = (rpm_val as f64 / 6000.0).min(1.0);
     let rpm_gauge = Gauge::default()
-        .gauge_style(Style::default().fg(ACCENT2))
+        .gauge_style(Style::default().fg(ACCENT2).bg(BG))
         .block(
             Block::default()
-                .title(" RPM (PgUp/PgDn) ")
+                .title(" RPM PgUp/PgDn ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(SURFACE))
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(BORDER))
                 .style(Style::default().bg(SURFACE)),
         )
-        .ratio(rpm_pct / 100.0)
-        .label(Span::raw(format!("{} req/min", rpm_val)));
-    f.render_widget(rpm_gauge, dial_chunks[1]);
+        .ratio(rpm_pct)
+        .label(Span::styled(
+            format!("{} req/min", rpm_val),
+            Style::default().fg(FG).add_modifier(Modifier::BOLD),
+        ));
+    let rpm_rect = inset(dial_chunks[1], 0, 0);
+    render_thin_shadow(f, rpm_rect, ACCENT2);
+    f.render_widget(rpm_gauge, rpm_rect);
 
-    let footer = Line::from(vec![
-        Span::styled(" ↑/↓: conc  PgUp/Dn: rpm  ", Style::default().fg(MUTED)),
-        Span::styled(
-            "q",
-            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
-        ),
-        Span::styled("/", Style::default().fg(MUTED)),
-        Span::styled("Backsp", Style::default().fg(ACCENT)),
-        Span::styled(": back to form  Esc: quit ", Style::default().fg(MUTED)),
-    ]);
-    let footer_para = Paragraph::new(footer)
-        .style(Style::default().bg(BG))
-        .alignment(Alignment::Center);
-    f.render_widget(footer_para, chunks[7]);
-
-    if show_spiral
-        && chunks.len() > 8
-        && chunks[8].height > 0
-        && chunks[8].width >= MIN_SPIRAL_WIDTH
-    {
-        let spiral_area = chunks[8];
-        let side_cols = (spiral_area.height * 2).min(spiral_area.width);
-        let x_off = (spiral_area.width.saturating_sub(side_cols)) / 2;
-        let square_rect = Rect {
-            x: spiral_area.x + x_off,
-            y: spiral_area.y,
-            width: side_cols,
-            height: spiral_area.height,
-        };
-        draw_fib_spiral(f, square_rect, stats.circuit.open_count);
-    }
-}
-
-fn draw_fib_spiral(f: &mut Frame, area: Rect, open_count: u32) {
-    const FIB: [f64; 14] = [
-        1., 1., 2., 3., 5., 8., 13., 21., 34., 55., 89., 144., 233., 377.,
-    ];
-    const CENTERS: [(f64, f64); 14] = [
-        (0., 0.),
-        (-1., 1.),
-        (-1., -1.),
-        (1., -1.),
-        (1., 2.),
-        (-2., 2.),
-        (-2., -3.),
-        (3., -3.),
-        (3., 5.),
-        (-5., 5.),
-        (-5., -8.),
-        (8., -8.),
-        (8., 13.),
-        (-13., 13.),
-    ];
-    let open_count = open_count as usize;
-    let mut lines: Vec<CanvasLine> = Vec::new();
-    let points_per_arc = 50usize;
-    for (i, (&r, &(cx, cy))) in FIB.iter().zip(CENTERS.iter()).enumerate() {
-        let start_deg = (i % 4) as f64 * 90.0;
-        let end_deg = start_deg + 90.0;
-        let start_rad = start_deg.to_radians();
-        let end_rad = end_deg.to_radians();
-        let mut px = cx + r * start_rad.cos();
-        let mut py = cy + r * start_rad.sin();
-        for k in 1..=points_per_arc {
-            let t = k as f64 / points_per_arc as f64;
-            let angle = start_rad + t * (end_rad - start_rad);
-            let x = cx + r * angle.cos();
-            let y = cy + r * angle.sin();
-            let (r8, g8, b8): (u8, u8, u8) = if i <= open_count {
-                let d = 75 + (open_count.saturating_sub(i)) * 12;
-                let d = d.min(180) as u8;
-                (d, d, (d + 8).min(188))
-            } else {
-                (58, 58, 62)
-            };
-            let color = Color::Rgb(r8, g8, b8);
-            lines.push(CanvasLine::new(px, py, x, y, color));
-            px = x;
-            py = y;
+    // ── 7: Footer ──
+    let mut limit_spans: Vec<Span> = Vec::new();
+    if let Some(lim) = total_limit {
+        limit_spans.push(Span::styled(
+            format!(" {}/{} reqs", stats.total, lim),
+            Style::default().fg(ACCENT2),
+        ));
+        if stats.total >= lim {
+            limit_spans.push(Span::styled(" DONE", Style::default().fg(SUCCESS)));
         }
     }
-    let x_bounds = [-18.0, 18.0];
-    let y_bounds = [-18.0, 18.0];
-    let canvas = Canvas::default()
-        .x_bounds(x_bounds)
-        .y_bounds(y_bounds)
-        .marker(symbols::Marker::HalfBlock)
-        .paint(move |ctx| {
-            for line in &lines {
-                ctx.draw(line);
-            }
-        });
-    f.render_widget(canvas, area);
+    if let Some(dur) = duration_limit {
+        limit_spans.push(Span::styled(
+            format!(
+                " {:.0}s/{:.0}s",
+                stats.test_elapsed.as_secs_f64(),
+                dur.as_secs_f64()
+            ),
+            Style::default().fg(ACCENT2),
+        ));
+        if stats.test_elapsed >= dur {
+            limit_spans.push(Span::styled(" DONE", Style::default().fg(SUCCESS)));
+        }
+    }
+
+    let mut footer_spans = vec![
+        Span::styled(" ↑/↓ conc  PgUp/Dn rpm  ", Style::default().fg(MUTED)),
+        Span::styled("q", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
+        Span::styled(" back  ", Style::default().fg(MUTED)),
+        Span::styled("Esc", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
+        Span::styled(" quit", Style::default().fg(MUTED)),
+    ];
+    footer_spans.extend(limit_spans);
+    let footer_para = Paragraph::new(Line::from(footer_spans))
+        .style(Style::default().bg(BG))
+        .alignment(Alignment::Center);
+    f.render_widget(footer_para, chunks[8]);
+
+}
+
+
+fn inset(r: Rect, right: u16, bottom: u16) -> Rect {
+    Rect {
+        width: r.width.saturating_sub(right),
+        height: r.height.saturating_sub(bottom),
+        ..r
+    }
 }
 
 fn truncate(s: &str, max: usize) -> String {

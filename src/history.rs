@@ -10,7 +10,7 @@ use std::path::PathBuf;
 const HISTORY_LEN: usize = 50;
 const HISTORY_FILE: &str = "stress-raiser/history.json";
 
-/// One saved form state (URL, method, headers, body, concurrency, RPM).
+/// One saved form state (URL, method, headers, body, concurrency, RPM, limits).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryEntry {
     pub url: String,
@@ -19,11 +19,24 @@ pub struct HistoryEntry {
     pub body: String,
     pub conc: usize,
     pub rpm: u64,
+    #[serde(default)]
+    pub total_requests: Option<u64>,
+    #[serde(default)]
+    pub duration_secs: Option<u64>,
 }
 
 impl HistoryEntry {
     /// Build a history entry from form field values.
-    pub fn new(url: &str, method: &str, headers: &str, body: &str, conc: usize, rpm: u64) -> Self {
+    pub fn new(
+        url: &str,
+        method: &str,
+        headers: &str,
+        body: &str,
+        conc: usize,
+        rpm: u64,
+        total_requests: Option<u64>,
+        duration_secs: Option<u64>,
+    ) -> Self {
         Self {
             url: url.to_string(),
             method: method.to_string(),
@@ -31,6 +44,8 @@ impl HistoryEntry {
             body: body.to_string(),
             conc,
             rpm,
+            total_requests,
+            duration_secs,
         }
     }
 }
@@ -75,7 +90,9 @@ pub fn add_to_history(entries: &mut Vec<HistoryEntry>, new: HistoryEntry) {
             && e.headers == new.headers
             && e.body == new.body
             && e.conc == new.conc
-            && e.rpm == new.rpm)
+            && e.rpm == new.rpm
+            && e.total_requests == new.total_requests
+            && e.duration_secs == new.duration_secs)
     });
     entries.insert(0, new);
     if entries.len() > HISTORY_LEN {

@@ -1,6 +1,6 @@
 //! Live load test statistics and circuit breaker.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
 const HISTORY_LEN: usize = 60;
@@ -13,7 +13,7 @@ pub const CIRCUIT_CONSECUTIVE_THRESHOLD: usize = 5;
 const CIRCUIT_COOLDOWN_CAP_SECS: u64 = 377;
 
 /// Nth Fibonacci number (1, 1, 2, 3, 5, 8, …), capped for use as seconds.
-fn fib_secs(n: u32) -> u64 {
+pub fn fib_secs(n: u32) -> u64 {
     let (mut a, mut b) = (1u64, 1u64);
     for _ in 0..n {
         let next = a.saturating_add(b);
@@ -108,8 +108,41 @@ impl CircuitBreaker {
 #[derive(Debug, Clone)]
 pub struct ResponseLogEntry {
     pub status: u16,
+    pub latency_ms: u64,
     pub ok: bool,
     pub body_preview: String,
+}
+
+/// One row in the full request log (for export).
+#[derive(Debug, Clone)]
+pub struct RequestRecord {
+    pub seq: u64,
+    pub elapsed_ms: u64,
+    pub status: u16,
+    pub latency_ms: u64,
+    pub ok: bool,
+    pub body_preview: String,
+}
+
+/// Frozen snapshot of test results for the report screen.
+#[derive(Debug, Clone)]
+pub struct ReportData {
+    pub total: u64,
+    pub ok: u64,
+    pub err: u64,
+    pub p50: u64,
+    pub p95: u64,
+    pub p99: u64,
+    pub min_latency: u64,
+    pub max_latency: u64,
+    pub avg_latency: f64,
+    pub rps: u64,
+    pub success_rate: f64,
+    pub elapsed: Duration,
+    pub status_codes: HashMap<u16, u64>,
+    pub url: String,
+    pub method: String,
+    pub requests: Vec<RequestRecord>,
 }
 
 /// Live stats: counts, latencies, RPS history, response log, circuit breaker.
@@ -124,12 +157,29 @@ pub struct Stats {
     pub rps_accum: u64,
     pub response_log: VecDeque<ResponseLogEntry>,
     pub circuit: CircuitBreaker,
+    pub status_codes: HashMap<u16, u64>,
+    pub start_time: Option<Instant>,
+    pub test_elapsed: Duration,
+    pub min_latency: u64,
+    pub max_latency: u64,
+    pub request_log: Vec<RequestRecord>,
 }
 
 impl Stats {
     pub fn record(&mut self, ok: bool, latency_ms: u64, status: u16, body_preview: String) {
         let now = Instant::now();
+        if self.start_time.is_none() {
+            self.start_time = Some(now);
+        }
         let bad = status >= 400 || !ok;
+        *self.status_codes.entry(status).or_insert(0) += 1;
+        if self.total == 0 {
+            self.min_latency = latency_ms;
+            self.max_latency = latency_ms;
+        } else {
+            self.min_latency = self.min_latency.min(latency_ms);
+            self.max_latency = self.max_latency.max(latency_ms);
+        }
         if bad {
             self.circuit.consecutive_bad += 1;
         } else {
@@ -178,18 +228,34 @@ impl Stats {
         } else {
             body_preview
         };
+        let elapsed_ms = self
+            .start_time
+            .map(|s| now.duration_since(s).as_millis() as u64)
+            .unwrap_or(0);
         self.response_log.push_back(ResponseLogEntry {
             status,
+            latency_ms,
             ok,
-            body_preview: preview,
+            body_preview: preview.clone(),
         });
         if self.response_log.len() > RESPONSE_LOG_LEN {
             self.response_log.pop_front();
         }
+        self.request_log.push(RequestRecord {
+            seq: self.total,
+            elapsed_ms,
+            status,
+            latency_ms,
+            ok,
+            body_preview: preview,
+        });
     }
 
     pub fn tick_rps(&mut self) {
         let now = Instant::now();
+        if let Some(start) = self.start_time {
+            self.test_elapsed = now.duration_since(start);
+        }
         if let Some(prev) = self.last_rps_tick {
             if now.duration_since(prev) >= Duration::from_secs(1) {
                 self.rps_history.push_back(self.rps_accum);
@@ -238,6 +304,32 @@ impl Stats {
 
     pub fn sparkline_data(&self) -> Vec<u64> {
         self.rps_history.iter().copied().collect()
+    }
+
+    pub fn snapshot(&self, url: &str, method: &str) -> ReportData {
+        let avg = if self.latencies_ms.is_empty() {
+            0.0
+        } else {
+            self.latencies_ms.iter().sum::<u64>() as f64 / self.latencies_ms.len() as f64
+        };
+        ReportData {
+            total: self.total,
+            ok: self.ok,
+            err: self.err,
+            p50: self.p50(),
+            p95: self.p95(),
+            p99: self.p99(),
+            min_latency: self.min_latency,
+            max_latency: self.max_latency,
+            avg_latency: avg,
+            rps: self.rps(),
+            success_rate: self.success_rate(),
+            elapsed: self.test_elapsed,
+            status_codes: self.status_codes.clone(),
+            url: url.to_string(),
+            method: method.to_string(),
+            requests: self.request_log.clone(),
+        }
     }
 }
 
