@@ -1,0 +1,320 @@
+# Instincts generated from https://github.com/z19r/stress-raiser
+# Generated: 2026-05-19T19:44:25.272Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: stress-raiser-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, ci, docs
+
+## Evidence
+
+- 4 commits analyzed
+- Detected conventional commit pattern
+- Examples: feat: redesign TUI with Whetstone design system, ci: standardize release workflow and upgrade CI
+
+---
+id: stress-raiser-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Commit Length
+
+## Action
+
+Keep commit messages concise (~44 characters)
+
+## Evidence
+
+- Average commit message length: 44 chars
+- Based on 4 commits
+
+---
+id: stress-raiser-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: stress-raiser-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: stress-raiser-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: stress-raiser-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: stress-raiser-instinct-file-naming
+trigger: "When creating a new source file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct File Naming
+
+## Action
+
+Name the file using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.files
+
+---
+id: stress-raiser-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Function Naming
+
+## Action
+
+Name the function using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.functions
+
+---
+id: stress-raiser-instinct-class-naming
+trigger: "When defining a new class or struct"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Class Naming
+
+## Action
+
+Name the class/struct using PascalCase
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: stress-raiser-instinct-constant-naming
+trigger: "When declaring a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Constant Naming
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: stress-raiser-instinct-import-style
+trigger: "When importing modules in Rust code"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Import Style
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- Pattern in importStyle: relative
+
+---
+id: stress-raiser-instinct-export-style
+trigger: "When exporting functions or types"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in exportStyle: named
+
+---
+id: stress-raiser-instinct-test-location
+trigger: "When adding new tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Test Location
+
+## Action
+
+Place tests in a separate directory from source code
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation: separate
+
+---
+id: stress-raiser-instinct-git-commit-format
+trigger: "When writing a commit message"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Git Commit Format
+
+## Action
+
+Use conventional commit prefixes: feat, ci, docs
+
+## Evidence
+
+- Seen in commit: feat: redesign TUI with Whetstone design system
+- Seen in commit: ci: standardize release workflow and upgrade CI
+- Seen in commit: docs: add project documentation
+
+---
+id: stress-raiser-instinct-git-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Git Commit Length
+
+## Action
+
+Keep the commit message concise, around 44 characters on average
+
+## Evidence
+
+- Pattern in commits.averageLength: 44
+
+---
+id: stress-raiser-instinct-ci-workflow-location
+trigger: "When configuring CI workflows"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Ci Workflow Location
+
+## Action
+
+Place workflow YAML files in .github/workflows/
+
+## Evidence
+
+- Pattern in architecture.configFiles: .github/workflows/release.yml
+- Pattern in architecture.configFiles: .github/workflows/rust.yml
+
