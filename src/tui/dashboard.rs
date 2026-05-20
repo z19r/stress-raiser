@@ -18,8 +18,11 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
+use super::{
+    confirm_quit, render_banner, render_thin_shadow, ACCENT, ACCENT2, BG, BORDER, ERROR, FG, MUTED,
+    SUCCESS, SURFACE,
+};
 use super::{RunResult, TestConfig};
-use super::{confirm_quit, render_banner, render_thin_shadow, ACCENT, ACCENT2, BG, BORDER, ERROR, FG, MUTED, SUCCESS, SURFACE};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn load_worker(
@@ -190,7 +193,18 @@ pub(super) async fn run_loop(
         let conc = *concurrency.read().await;
         let rpm_val = *rpm.read().await;
         tick_count += 1;
-        terminal.draw(|f| ui(f, &request_clone, &st, conc, rpm_val, total_limit, duration_limit, tick_count))?;
+        terminal.draw(|f| {
+            ui(
+                f,
+                &request_clone,
+                &st,
+                conc,
+                rpm_val,
+                total_limit,
+                duration_limit,
+                tick_count,
+            )
+        })?;
 
         if !*running.read().await {
             return Ok(RunResult::BackToForm(Box::new(TestConfig {
@@ -256,15 +270,15 @@ fn ui(
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4),  // 0: banner
-            Constraint::Length(1),  // 1: method + url
-            Constraint::Length(4),  // 2: circuit breaker
-            Constraint::Length(6),  // 3: stats + status codes (side-by-side)
+            Constraint::Length(4), // 0: banner
+            Constraint::Length(1), // 1: method + url
+            Constraint::Length(4), // 2: circuit breaker
+            Constraint::Length(6), // 3: stats + status codes (side-by-side)
             Constraint::Min(4),    // 4: RPS braille chart (full width, grows)
-            Constraint::Length(7),  // 5: response log table
-            Constraint::Length(3),  // 6: success rate gauge
-            Constraint::Length(3),  // 7: conc + rpm dials
-            Constraint::Length(1),  // 8: footer
+            Constraint::Length(7), // 5: response log table
+            Constraint::Length(3), // 6: success rate gauge
+            Constraint::Length(3), // 7: conc + rpm dials
+            Constraint::Length(1), // 8: footer
         ])
         .split(area);
 
@@ -277,7 +291,10 @@ fn ui(
     let method_url = Paragraph::new(Line::from(vec![
         Span::styled(
             format!("  {} ", method),
-            Style::default().fg(BG).bg(ACCENT).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(BG)
+                .bg(ACCENT)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(format!(" {}", url), Style::default().fg(MUTED)),
     ]))
@@ -304,24 +321,40 @@ fn ui(
     let cb_detail: Vec<Span> = match stats.circuit.state {
         CircuitState::Closed => {
             vec![
-                Span::styled(format!("errors: {bad}/{threshold}"), Style::default().fg(if bad > 0 { ACCENT } else { MUTED })),
+                Span::styled(
+                    format!("errors: {bad}/{threshold}"),
+                    Style::default().fg(if bad > 0 { ACCENT } else { MUTED }),
+                ),
                 Span::styled("  sending requests", Style::default().fg(MUTED)),
             ]
         }
         CircuitState::Open { open_until } => {
-            let rem = if now >= open_until { 0 } else { open_until.duration_since(now).as_secs() };
+            let rem = if now >= open_until {
+                0
+            } else {
+                open_until.duration_since(now).as_secs()
+            };
             let fib = crate::stats::fib_secs(stats.circuit.open_count);
             vec![
-                Span::styled(format!("tripped at {bad} errors"), Style::default().fg(ERROR)),
+                Span::styled(
+                    format!("tripped at {bad} errors"),
+                    Style::default().fg(ERROR),
+                ),
                 Span::styled(format!("  backoff: {fib}s"), Style::default().fg(MUTED)),
                 Span::styled(format!("  retry in {rem}s"), Style::default().fg(ACCENT)),
             ]
         }
         CircuitState::HalfOpen { probe_sent } => {
             if probe_sent {
-                vec![Span::styled("probe sent, awaiting response…", Style::default().fg(ACCENT2))]
+                vec![Span::styled(
+                    "probe sent, awaiting response…",
+                    Style::default().fg(ACCENT2),
+                )]
             } else {
-                vec![Span::styled("sending 1 probe request…", Style::default().fg(ACCENT2))]
+                vec![Span::styled(
+                    "sending 1 probe request…",
+                    Style::default().fg(ACCENT2),
+                )]
             }
         }
     };
@@ -333,8 +366,7 @@ fn ui(
         Span::styled(" │ ", Style::default().fg(BORDER)),
     ];
     cb_spans.extend(cb_detail);
-    let cb_para = Paragraph::new(Line::from(cb_spans))
-    .block(
+    let cb_para = Paragraph::new(Line::from(cb_spans)).block(
         Block::default()
             .title(" Circuit Breaker ")
             .borders(Borders::ALL)
@@ -405,8 +437,8 @@ fn ui(
     let codes_rect = inset(stats_cols[1], 0, 1);
     render_thin_shadow(f, codes_rect, ACCENT);
     if codes.is_empty() {
-        let placeholder = Paragraph::new(Span::styled("(no responses)", Style::default().fg(MUTED)))
-            .block(
+        let placeholder =
+            Paragraph::new(Span::styled("(no responses)", Style::default().fg(MUTED))).block(
                 Block::default()
                     .title(" Status Codes ")
                     .borders(Borders::ALL)
@@ -433,7 +465,12 @@ fn ui(
                     .value(*val)
                     .label(Line::from(label.clone()))
                     .style(Style::default().fg(color))
-                    .value_style(Style::default().fg(BG).bg(color).add_modifier(Modifier::BOLD))
+                    .value_style(
+                        Style::default()
+                            .fg(BG)
+                            .bg(color)
+                            .add_modifier(Modifier::BOLD),
+                    )
             })
             .collect();
         let chart = BarChart::default()
@@ -473,7 +510,13 @@ fn ui(
                 return;
             }
             let baseline = max_rps * 0.5;
-            ctx.draw(&CanvasLine::new(0.0, baseline, data_len as f64, baseline, BORDER));
+            ctx.draw(&CanvasLine::new(
+                0.0,
+                baseline,
+                data_len as f64,
+                baseline,
+                BORDER,
+            ));
             for i in 1..data_len {
                 let x0 = i as f64 - 1.0;
                 let x1 = i as f64;
@@ -495,17 +538,25 @@ fn ui(
     let mid_label = format!("{}", (max_rps * 0.5) as u64);
     let mut label_lines: Vec<Line> = Vec::new();
     if label_height >= 3 {
-        label_lines.push(Line::from(Span::styled(&top_label, Style::default().fg(MUTED))).alignment(Alignment::Right));
+        label_lines.push(
+            Line::from(Span::styled(&top_label, Style::default().fg(MUTED)))
+                .alignment(Alignment::Right),
+        );
         let pad = (label_height - 3) / 2;
         for _ in 0..pad {
             label_lines.push(Line::from(""));
         }
-        label_lines.push(Line::from(Span::styled(&mid_label, Style::default().fg(MUTED))).alignment(Alignment::Right));
+        label_lines.push(
+            Line::from(Span::styled(&mid_label, Style::default().fg(MUTED)))
+                .alignment(Alignment::Right),
+        );
         let remaining = label_height.saturating_sub(label_lines.len() as u16 + 1);
         for _ in 0..remaining {
             label_lines.push(Line::from(""));
         }
-        label_lines.push(Line::from(Span::styled("0", Style::default().fg(MUTED))).alignment(Alignment::Right));
+        label_lines.push(
+            Line::from(Span::styled("0", Style::default().fg(MUTED))).alignment(Alignment::Right),
+        );
     }
     let y_axis = Paragraph::new(label_lines).style(Style::default().bg(BG));
     f.render_widget(y_axis, chart_cols[0]);
@@ -545,7 +596,9 @@ fn ui(
                 Row::new(vec![
                     Cell::from(Span::styled(
                         format!("{}", e.status),
-                        Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(status_color)
+                            .add_modifier(Modifier::BOLD),
                     )),
                     Cell::from(Span::styled(
                         format!("{}ms", e.latency_ms),
@@ -566,9 +619,18 @@ fn ui(
         )
         .header(
             Row::new(vec![
-                Cell::from(Span::styled("Code", Style::default().fg(FG).add_modifier(Modifier::BOLD))),
-                Cell::from(Span::styled("Latency", Style::default().fg(FG).add_modifier(Modifier::BOLD))),
-                Cell::from(Span::styled("Preview", Style::default().fg(FG).add_modifier(Modifier::BOLD))),
+                Cell::from(Span::styled(
+                    "Code",
+                    Style::default().fg(FG).add_modifier(Modifier::BOLD),
+                )),
+                Cell::from(Span::styled(
+                    "Latency",
+                    Style::default().fg(FG).add_modifier(Modifier::BOLD),
+                )),
+                Cell::from(Span::styled(
+                    "Preview",
+                    Style::default().fg(FG).add_modifier(Modifier::BOLD),
+                )),
             ])
             .style(Style::default().bg(SURFACE))
             .bottom_margin(0),
@@ -676,9 +738,15 @@ fn ui(
 
     let mut footer_spans = vec![
         Span::styled(" ↑/↓ conc  PgUp/Dn rpm  ", Style::default().fg(MUTED)),
-        Span::styled("q", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "q",
+            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+        ),
         Span::styled(" back  ", Style::default().fg(MUTED)),
-        Span::styled("Esc", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "Esc",
+            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+        ),
         Span::styled(" quit", Style::default().fg(MUTED)),
     ];
     footer_spans.extend(limit_spans);
@@ -686,9 +754,7 @@ fn ui(
         .style(Style::default().bg(BG))
         .alignment(Alignment::Center);
     f.render_widget(footer_para, chunks[8]);
-
 }
-
 
 fn inset(r: Rect, right: u16, bottom: u16) -> Rect {
     Rect {

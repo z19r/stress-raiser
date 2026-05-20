@@ -13,7 +13,10 @@ const RESET: &str = "\x1b[0m";
 
 fn dot_line(name: &str, col: usize, value: &str, color: &str) {
     let dots = col.saturating_sub(name.len());
-    println!("  {name}{DIM}{}{RESET}: {color}{value}{RESET}", ".".repeat(dots));
+    println!(
+        "  {name}{DIM}{}{RESET}: {color}{value}{RESET}",
+        ".".repeat(dots)
+    );
 }
 
 /// Print a k6-style colored summary to stdout (call after ratatui::restore).

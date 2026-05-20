@@ -11,7 +11,10 @@ use crossterm::execute;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Wrap};
 
-use super::{confirm_quit, render_banner, render_thin_shadow, TestConfig, ACCENT, BG, BORDER, CURSOR_STYLE, ERROR, FG, MUTED, SURFACE};
+use super::{
+    confirm_quit, render_banner, render_thin_shadow, TestConfig, ACCENT, BG, BORDER, CURSOR_STYLE,
+    ERROR, FG, MUTED, SURFACE,
+};
 
 struct FormEditorsMut<'a> {
     url: &'a mut Editor,
@@ -86,9 +89,7 @@ pub async fn run_form(
         let t_str = cfg
             .total_requests
             .map_or("0".to_string(), |v| v.to_string());
-        let d_str = cfg
-            .duration_secs
-            .map_or("0".to_string(), |v| v.to_string());
+        let d_str = cfg.duration_secs.map_or("0".to_string(), |v| v.to_string());
         (
             Editor::new(u),
             Editor::new(h),
@@ -585,10 +586,8 @@ fn apply_history(
             ent.total_requests
                 .map_or("0".to_string(), |v| v.to_string()),
         );
-        *editors.duration_edit = Editor::new(
-            ent.duration_secs
-                .map_or("0".to_string(), |v| v.to_string()),
-        );
+        *editors.duration_edit =
+            Editor::new(ent.duration_secs.map_or("0".to_string(), |v| v.to_string()));
     }
 }
 
@@ -596,22 +595,27 @@ fn draw_form(f: &mut Frame, v: FormView<'_>) {
     let full = f.area();
     f.render_widget(Block::default().style(Style::default().bg(BG)), full);
 
-    let area = Rect::new(full.x + 1, full.y, full.width.saturating_sub(3), full.height);
+    let area = Rect::new(
+        full.x + 1,
+        full.y,
+        full.width.saturating_sub(3),
+        full.height,
+    );
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4),  // 0: banner
-            Constraint::Length(4),  // 1: Method + URL row
-            Constraint::Length(1),  // 2: gap
-            Constraint::Length(7),  // 3: Headers
-            Constraint::Length(1),  // 4: gap
-            Constraint::Length(7),  // 5: Body
-            Constraint::Length(1),  // 6: gap
-            Constraint::Length(5),  // 7: numeric row
-            Constraint::Length(1),  // 8: hint
-            Constraint::Length(1),  // 9: gap
-            Constraint::Length(4),  // 10: START
+            Constraint::Length(4), // 0: banner
+            Constraint::Length(4), // 1: Method + URL row
+            Constraint::Length(1), // 2: gap
+            Constraint::Length(7), // 3: Headers
+            Constraint::Length(1), // 4: gap
+            Constraint::Length(7), // 5: Body
+            Constraint::Length(1), // 6: gap
+            Constraint::Length(5), // 7: numeric row
+            Constraint::Length(1), // 8: hint
+            Constraint::Length(1), // 9: gap
+            Constraint::Length(4), // 10: START
             Constraint::Min(1),    // 11: footer
         ])
         .split(area);
@@ -627,7 +631,11 @@ fn draw_form(f: &mut Frame, v: FormView<'_>) {
     };
 
     let shadow_color = |field: FormField| {
-        if v.focused == field { BORDER } else { ACCENT }
+        if v.focused == field {
+            BORDER
+        } else {
+            ACCENT
+        }
     };
 
     let style_fg = Style::default().fg(FG);
@@ -643,7 +651,12 @@ fn draw_form(f: &mut Frame, v: FormView<'_>) {
     };
 
     let widget_rect = |chunk: Rect| -> Rect {
-        Rect::new(chunk.x, chunk.y, chunk.width, chunk.height.saturating_sub(1))
+        Rect::new(
+            chunk.x,
+            chunk.y,
+            chunk.width,
+            chunk.height.saturating_sub(1),
+        )
     };
 
     // Method + URL on one row
@@ -652,7 +665,7 @@ fn draw_form(f: &mut Frame, v: FormView<'_>) {
         .constraints([
             Constraint::Length(16), // Method
             Constraint::Length(3),  // gap
-            Constraint::Min(1),    // URL takes the rest
+            Constraint::Min(1),     // URL takes the rest
         ])
         .split(chunks[1]);
 
@@ -670,7 +683,11 @@ fn draw_form(f: &mut Frame, v: FormView<'_>) {
         uwr.width,
         "(enter URL)",
         v.focused == FormField::Url,
-        if v.url.is_empty() { style_muted } else { style_fg },
+        if v.url.is_empty() {
+            style_muted
+        } else {
+            style_fg
+        },
         v.cursor_style,
     );
     render_thin_shadow(f, uwr, shadow_color(FormField::Url));
@@ -685,7 +702,11 @@ fn draw_form(f: &mut Frame, v: FormView<'_>) {
         4,
         "(Name: value per line)",
         v.focused == FormField::Headers,
-        if v.headers.is_empty() { style_muted } else { style_fg },
+        if v.headers.is_empty() {
+            style_muted
+        } else {
+            style_fg
+        },
         v.cursor_style,
     );
     render_thin_shadow(f, wr, shadow_color(FormField::Headers));
@@ -702,7 +723,11 @@ fn draw_form(f: &mut Frame, v: FormView<'_>) {
         4,
         "(JSON or raw body)",
         v.focused == FormField::Body,
-        if v.body.is_empty() { style_muted } else { style_fg },
+        if v.body.is_empty() {
+            style_muted
+        } else {
+            style_fg
+        },
         v.cursor_style,
     );
     render_thin_shadow(f, wr, shadow_color(FormField::Body));
@@ -743,10 +768,7 @@ fn draw_form(f: &mut Frame, v: FormView<'_>) {
             v.cursor_style,
         );
         render_thin_shadow(f, wr, shadow_color(*field));
-        f.render_widget(
-            Paragraph::new(line).block(input_block(*field, title)),
-            wr,
-        );
+        f.render_widget(Paragraph::new(line).block(input_block(*field, title)), wr);
     }
 
     f.render_widget(

@@ -167,7 +167,8 @@ mod tests {
 
     #[test]
     fn serde_missing_optional_fields_default() {
-        let json = r#"{"url":"http://x.com","method":"GET","headers":"","body":"","conc":1,"rpm":10}"#;
+        let json =
+            r#"{"url":"http://x.com","method":"GET","headers":"","body":"","conc":1,"rpm":10}"#;
         let parsed: HistoryEntry = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.total_requests, None);
         assert_eq!(parsed.duration_secs, None);

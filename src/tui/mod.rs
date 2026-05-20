@@ -16,15 +16,15 @@ use tokio::sync::RwLock;
 ///   Surface  = Void #07030E    Foreground = Bone #F5F2E8
 ///   Muted    = Mist #DCD0FF    Accent     = Acid #D6FF2E
 ///   AccentHot= Magenta #FF2E93 Rule       = Lilac #A78BFA
-pub(super) const BG: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(7, 3, 14);      // Void
+pub(super) const BG: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(7, 3, 14); // Void
 pub(super) const SURFACE: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(17, 6, 40); // Obsidian
 pub(super) const BORDER: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(167, 139, 250); // Lilac (Rule)
-pub(super) const MUTED: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(220, 208, 255);  // Mist
-pub(super) const FG: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(245, 242, 232);     // Bone
-pub(super) const ACCENT: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(214, 255, 46);  // Acid
+pub(super) const MUTED: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(220, 208, 255); // Mist
+pub(super) const FG: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(245, 242, 232); // Bone
+pub(super) const ACCENT: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(214, 255, 46); // Acid
 pub(super) const ACCENT2: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(167, 139, 250); // Lilac
 pub(super) const SUCCESS: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(214, 255, 46); // Acid
-pub(super) const ERROR: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(255, 46, 147);   // Magenta
+pub(super) const ERROR: ratatui::prelude::Color = ratatui::prelude::Color::Rgb(255, 46, 147); // Magenta
 pub(super) const CURSOR_STYLE: (ratatui::prelude::Color, ratatui::prelude::Color) = (
     ratatui::prelude::Color::Rgb(214, 255, 46),
     ratatui::prelude::Color::Rgb(7, 3, 14),
@@ -36,7 +36,11 @@ pub(super) fn render_banner(f: &mut ratatui::Frame, area: ratatui::prelude::Rect
     use ratatui::widgets::Paragraph;
     let w = area.width as usize;
     let trim = |s: &str| -> String {
-        if s.len() <= w { s.to_string() } else { s[..w].to_string() }
+        if s.len() <= w {
+            s.to_string()
+        } else {
+            s[..w].to_string()
+        }
     };
     let banner = vec![
         Line::from(Span::styled(
@@ -53,7 +57,9 @@ pub(super) fn render_banner(f: &mut ratatui::Frame, area: ratatui::prelude::Rect
         )),
     ];
     f.render_widget(
-        Paragraph::new(banner).alignment(Alignment::Center).style(Style::default().bg(BG)),
+        Paragraph::new(banner)
+            .alignment(Alignment::Center)
+            .style(Style::default().bg(BG)),
         area,
     );
 }
@@ -73,9 +79,8 @@ pub(super) fn render_thin_shadow(
         let rh = area.height.min(term.height.saturating_sub(ry));
         for row in 0..rh {
             f.render_widget(
-                ratatui::widgets::Paragraph::new("▐").style(
-                    ratatui::prelude::Style::default().fg(color).bg(BG),
-                ),
+                ratatui::widgets::Paragraph::new("▐")
+                    .style(ratatui::prelude::Style::default().fg(color).bg(BG)),
                 ratatui::prelude::Rect::new(rx, ry + row, 1, 1),
             );
         }
@@ -88,9 +93,8 @@ pub(super) fn render_thin_shadow(
         let w = area.width.min(term.width.saturating_sub(bot_x));
         if w > 0 {
             f.render_widget(
-                ratatui::widgets::Paragraph::new("▀".repeat(w as usize)).style(
-                    ratatui::prelude::Style::default().fg(color).bg(BG),
-                ),
+                ratatui::widgets::Paragraph::new("▀".repeat(w as usize))
+                    .style(ratatui::prelude::Style::default().fg(color).bg(BG)),
                 ratatui::prelude::Rect::new(bot_x, bot_y, w, 1),
             );
         }

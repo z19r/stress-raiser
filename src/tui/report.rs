@@ -6,7 +6,10 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Row, Table};
 use std::time::Duration;
 
-use super::{confirm_quit, render_banner, render_thin_shadow, RunResult, TestConfig, ACCENT, BG, BORDER, ERROR, FG, MUTED, SUCCESS, SURFACE};
+use super::{
+    confirm_quit, render_banner, render_thin_shadow, RunResult, TestConfig, ACCENT, BG, BORDER,
+    ERROR, FG, MUTED, SUCCESS, SURFACE,
+};
 
 pub(super) fn run_report(
     terminal: &mut ratatui::DefaultTerminal,
@@ -43,8 +46,7 @@ pub(super) fn run_report(
                     }
                     KeyCode::Char('c') => match crate::export::export_csv(report) {
                         Ok(path) => {
-                            export_msg =
-                                Some((format!("CSV saved: {}", path.display()), false));
+                            export_msg = Some((format!("CSV saved: {}", path.display()), false));
                         }
                         Err(e) => {
                             export_msg = Some((format!("CSV failed: {e}"), true));
@@ -52,8 +54,7 @@ pub(super) fn run_report(
                     },
                     KeyCode::Char('h') => match crate::export::export_html(report) {
                         Ok(path) => {
-                            export_msg =
-                                Some((format!("HTML saved: {}", path.display()), false));
+                            export_msg = Some((format!("HTML saved: {}", path.display()), false));
                         }
                         Err(e) => {
                             export_msg = Some((format!("HTML failed: {e}"), true));
