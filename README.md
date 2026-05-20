@@ -7,17 +7,15 @@ live TUI: stats, circuit breaker, and sparklines.
 
 **Form** — URL, method, headers, body, concurrency, RPM. Enter to start.
 
-![Dashboard](doc/form.png)
+![Form](doc/form.png)
 
 **Dashboard** — Live stats, circuit breaker, RPS sparkline, success rate.
 
-![Dashboard](doc/dashboard.png)
+![Dashboard](doc/dash.png)
 
-*(Dashboard image is a mockup; for a real capture run `just`, start a load test,
-then screenshot your terminal.)*
-\
-![Form](doc/form.png)
+**Report** - Simple report when you're all done.
 
+![report](doc/report.png)
 
 ## Install
 
@@ -25,7 +23,8 @@ then screenshot your terminal.)*
 cargo install --path .
 ```
 
-Or clone the repo (or extract the archive you were sent). From the project root:
+Or clone the repo (or extract the archive you were sent). From the project
+root:
 
 ```bash
 cargo build --release
@@ -45,32 +44,32 @@ just
 
 The app has two phases:
 
-1. **Form** — Enter URL, method, headers, body, concurrency, and RPM. Start the
-   load test with Enter.
-2. **Dashboard** — Live load test with real-time stats. Return to the form with
-   q or Backspace; quit the app with Esc.
+1. **Form** — Enter URL, method, headers, body, concurrency, and RPM. Start
+   the load test with Enter.
+2. **Dashboard** — Live load test with real-time stats. Return to the form
+   with q or Backspace; quit the app with Esc.
 
 ### Keybindings
 
 **Form**
 
-| Key           | Action                          |
-|---------------|----------------------------------|
-| Tab           | Next field                       |
-| Shift+Tab     | Previous field                   |
-| Enter         | Start load test (when URL set)   |
-| ↑/↓ (in URL)  | Cycle through request history    |
-| Ctrl+↑/↓ (Headers/Body) | Cycle request history  |
-| Esc           | Quit                             |
+| Key                     | Action                         |
+| ----------------------- | ------------------------------ |
+| Tab                     | Next field                     |
+| Shift+Tab               | Previous field                 |
+| Enter                   | Start load test (when URL set) |
+| ↑/↓ (in URL)            | Cycle through request history  |
+| Ctrl+↑/↓ (Headers/Body) | Cycle request history          |
+| Esc                     | Quit                           |
 
 **Dashboard**
 
-| Key        | Action                    |
-|------------|---------------------------|
-| ↑/↓        | Concurrency (±10)         |
-| PgUp/PgDn  | RPM (±10)                 |
-| q / Backspace | Back to form            |
-| Esc        | Quit                      |
+| Key           | Action            |
+| ------------- | ----------------- |
+| ↑/↓           | Concurrency (±10) |
+| PgUp/PgDn     | RPM (±10)         |
+| q / Backspace | Back to form      |
+| Esc           | Quit              |
 
 ## Config / data
 
@@ -84,9 +83,8 @@ Persistence is best-effort; missing or invalid files are ignored.
 
 ## Examples
 
-Enter a URL (e.g. `https://example.com`) in the URL field, choose method
-(GET, POST, etc.), add headers and body in their fields, then start the
-load test.
+Enter a URL (e.g. `https://example.com`) in the URL field, choose method (GET,
+POST, etc.), add headers and body in their fields, then start the load test.
 
 ## Publishing to crates.io
 
@@ -100,12 +98,12 @@ inspection before uploading.
 
 ## Development
 
-| Command        | Description              |
-|----------------|--------------------------|
-| `just`         | Run the app              |
-| `just test`     | Run tests                |
-| `just fmt`      | Format code              |
-| `just check`    | Check + clippy            |
-| `just doc`         | Build and open API docs   |
+| Command              | Description                        |
+| -------------------- | ---------------------------------- |
+| `just`               | Run the app                        |
+| `just test`          | Run tests                          |
+| `just fmt`           | Format code                        |
+| `just check`         | Check + clippy                     |
+| `just doc`           | Build and open API docs            |
 | `just publish-check` | Fmt, clippy, test, dry-run publish |
-| `just publish`     | Publish to crates.io      |
+| `just publish`       | Publish to crates.io               |
