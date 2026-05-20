@@ -7,14 +7,17 @@ live TUI: stats, circuit breaker, and sparklines.
 
 **Form** — URL, method, headers, body, concurrency, RPM. Enter to start.
 
-![Form](doc/form-screenshot.png)
+![Dashboard](doc/form.png)
 
 **Dashboard** — Live stats, circuit breaker, RPS sparkline, success rate.
 
-![Dashboard](doc/dashboard-screenshot.png)
+![Dashboard](doc/dashboard.png)
 
 *(Dashboard image is a mockup; for a real capture run `just`, start a load test,
 then screenshot your terminal.)*
+\
+![Form](doc/form.png)
+
 
 ## Install
 
