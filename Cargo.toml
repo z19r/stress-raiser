@@ -1,6 +1,6 @@
 [package]
 name = "stress-raiser"
-version = "1.1.1"
+version = "1.2.0"
 edition = "2021"
 description = "Beautiful Rust stress tester with form input and live TUI"
 readme = "README.md"
