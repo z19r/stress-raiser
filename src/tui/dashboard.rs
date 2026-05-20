@@ -21,6 +21,7 @@ use tokio::sync::RwLock;
 use super::{RunResult, TestConfig};
 use super::{confirm_quit, render_banner, render_thin_shadow, ACCENT, ACCENT2, BG, BORDER, ERROR, FG, MUTED, SUCCESS, SURFACE};
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn load_worker(
     client: reqwest::Client,
     req_template: reqwest::Request,
@@ -125,6 +126,7 @@ pub(super) async fn load_worker(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn run_loop(
     terminal: &mut ratatui::DefaultTerminal,
     request: &CurlRequest,
@@ -191,13 +193,13 @@ pub(super) async fn run_loop(
         terminal.draw(|f| ui(f, &request_clone, &st, conc, rpm_val, total_limit, duration_limit, tick_count))?;
 
         if !*running.read().await {
-            return Ok(RunResult::BackToForm(TestConfig {
+            return Ok(RunResult::BackToForm(Box::new(TestConfig {
                 request: request_clone.clone(),
                 concurrency: conc,
                 rpm: rpm_val,
                 total_requests: total_limit,
                 duration_secs: duration_limit.map(|d| d.as_secs()),
-            }));
+            })));
         }
     }
 }
@@ -235,6 +237,7 @@ async fn handle_key(
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn ui(
     f: &mut Frame,
     request: &CurlRequest,

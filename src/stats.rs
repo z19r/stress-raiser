@@ -346,8 +346,10 @@ mod tests {
 
     #[test]
     fn percentile_and_p50_p99() {
-        let mut s = Stats::default();
-        s.latencies_ms = vec![10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+        let s = Stats {
+            latencies_ms: vec![10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+            ..Default::default()
+        };
         assert_eq!(s.p50(), 60); // (50/100)*10 -> index 5
         assert_eq!(s.p95(), 100); // index 9
         assert_eq!(s.p99(), 100); // index 9

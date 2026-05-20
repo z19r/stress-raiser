@@ -22,10 +22,8 @@ pub(super) fn run_report(
                     continue;
                 }
                 match e.code {
-                    KeyCode::Esc => {
-                        if confirm_quit(terminal) {
-                            return Ok(RunResult::Quit);
-                        }
+                    KeyCode::Esc if confirm_quit(terminal) => {
+                        return Ok(RunResult::Quit);
                     }
                     KeyCode::Enter | KeyCode::Char('q') => {
                         let dummy = TestConfig {
@@ -41,7 +39,7 @@ pub(super) fn run_report(
                             total_requests: None,
                             duration_secs: None,
                         };
-                        return Ok(RunResult::BackToForm(dummy));
+                        return Ok(RunResult::BackToForm(Box::new(dummy)));
                     }
                     KeyCode::Char('c') => match crate::export::export_csv(report) {
                         Ok(path) => {

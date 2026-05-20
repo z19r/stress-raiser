@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
         match run_tui(config, stats, concurrency, rpm, running).await {
             Ok(RunResult::Quit) => break,
             Ok(RunResult::BackToForm(cfg)) => {
-                init = Some(cfg);
+                init = Some(*cfg);
             }
             Err(e) => return Err(e),
         }

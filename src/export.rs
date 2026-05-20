@@ -322,3 +322,125 @@ pub fn export_ascii(r: &ReportData) -> String {
     out.push_str("╚══════════════════════════════════════════╝\n");
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stats::RequestRecord;
+    use std::collections::HashMap;
+    use std::time::Duration;
+
+    fn sample_report() -> ReportData {
+        let mut status_codes = HashMap::new();
+        status_codes.insert(200, 8);
+        status_codes.insert(500, 2);
+
+        ReportData {
+            total: 10,
+            ok: 8,
+            err: 2,
+            p50: 45,
+            p95: 120,
+            p99: 200,
+            min_latency: 10,
+            max_latency: 250,
+            avg_latency: 55.5,
+            rps: 100,
+            success_rate: 0.8,
+            elapsed: Duration::from_millis(5500),
+            status_codes,
+            url: "http://example.com/api".to_string(),
+            method: "GET".to_string(),
+            requests: vec![
+                RequestRecord {
+                    seq: 1,
+                    elapsed_ms: 100,
+                    status: 200,
+                    latency_ms: 45,
+                    ok: true,
+                    body_preview: "OK".to_string(),
+                },
+                RequestRecord {
+                    seq: 2,
+                    elapsed_ms: 200,
+                    status: 500,
+                    latency_ms: 250,
+                    ok: false,
+                    body_preview: "Internal Server Error".to_string(),
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn html_escape_special_chars() {
+        assert_eq!(
+            html_escape("<script>alert('xss')&\""),
+            "&lt;script&gt;alert('xss')&amp;&quot;"
+        );
+    }
+
+    #[test]
+    fn csv_roundtrip() {
+        let r = sample_report();
+        let path = export_csv(&r).unwrap();
+        let content = std::fs::read_to_string(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+
+        assert!(content.starts_with("metric,value\n"));
+        assert!(content.contains("url,\"http://example.com/api\"\n"));
+        assert!(content.contains("total,10\n"));
+        assert!(content.contains("ok,8\n"));
+        assert!(content.contains("errors,2\n"));
+        assert!(content.contains("min_latency_ms,10\n"));
+        assert!(content.contains("p95_ms,120\n"));
+        assert!(content.contains("status_code,count\n"));
+        assert!(content.contains("200,8\n"));
+        assert!(content.contains("500,2\n"));
+        assert!(content.contains("seq,elapsed_ms,status,latency_ms,ok,body_preview\n"));
+        assert!(content.contains("1,100,200,45,true,\"OK\"\n"));
+    }
+
+    #[test]
+    fn html_roundtrip() {
+        let r = sample_report();
+        let path = export_html(&r).unwrap();
+        let content = std::fs::read_to_string(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+
+        assert!(content.contains("<!DOCTYPE html>"));
+        assert!(content.contains("stress-raiser"));
+        assert!(content.contains("GET http://example.com/api"));
+        assert!(content.contains("<td class=\"ok\">200</td>"));
+        assert!(content.contains("<td class=\"err\">500</td>"));
+    }
+
+    #[test]
+    fn ascii_has_box_drawing_structure() {
+        let r = sample_report();
+        let ascii = export_ascii(&r);
+
+        assert!(ascii.starts_with('╔'));
+        assert!(ascii.contains("STRESS-RAISER REPORT"));
+        assert!(ascii.contains("GET"));
+        assert!(ascii.contains("Total:"));
+        assert!(ascii.contains("Latency (ms)"));
+        assert!(ascii.contains("Status Codes"));
+        assert!(ascii.contains("Request Log"));
+        assert!(ascii.ends_with("╚══════════════════════════════════════════╝\n"));
+    }
+
+    #[test]
+    fn ascii_header_line_count_matches_output() {
+        let r = sample_report();
+        let ascii = export_ascii(&r);
+        let expected = ascii_header_line_count(&r);
+        let lines: Vec<&str> = ascii.lines().collect();
+
+        assert!(lines.len() > expected);
+        assert!(
+            lines[expected].contains('1'),
+            "first request row should be at line {expected}"
+        );
+    }
+}

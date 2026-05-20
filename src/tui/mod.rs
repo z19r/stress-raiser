@@ -48,7 +48,7 @@ pub(super) fn render_banner(f: &mut ratatui::Frame, area: ratatui::prelude::Rect
             Style::default().fg(ACCENT),
         )),
         Line::from(Span::styled(
-            trim(&"─".repeat(w.min(48).max(1))),
+            trim(&"─".repeat(w.clamp(1, 48))),
             Style::default().fg(BORDER),
         )),
     ];
@@ -167,7 +167,7 @@ pub enum RunResult {
     /// User chose Esc; exit the application.
     Quit,
     /// User chose q/Backspace; return to form with config.
-    BackToForm(TestConfig),
+    BackToForm(Box<TestConfig>),
 }
 
 /// Run the load-test dashboard: spawns worker, runs event loop and UI until
