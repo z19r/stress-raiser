@@ -10,18 +10,34 @@ stress-raiser is a terminal-based HTTP load testing tool built with Rust. It has
 
 ```bash
 just              # list available recipes
-just run          # cargo run (launch the TUI, cleans and runs first)
+just run          # cargo run (launch the TUI)
 just build        # cargo build (debug)
 just build-release # cargo build --release
 just test         # cargo test
 just fmt          # cargo fmt
 just check        # cargo check && cargo clippy
 just doc          # cargo doc --no-deps --open
-just publish-check # fmt + clippy + test + dry-run publish (gate before release)
-just publish      # cargo publish (requires cargo login)
+just package      # cargo package (create .crate for inspection)
 ```
 
 Run a single test: `cargo test test_name`
+
+### Release
+
+```bash
+just release-check              # quality gate: fmt + clippy + test
+just release-dry-run patch      # preview release without changes
+just release patch              # bump version, create release/vX.Y.Z branch + PR
+```
+
+After `just release`, the human workflow is:
+```bash
+gh pr checks                    # watch CI on the PR
+gh pr merge --squash --delete-branch
+gh run watch                    # watch release workflow
+```
+
+CI (`release.yml`) handles: tag creation, cross-platform builds (4 targets), GitHub Release with checksums, and crates.io publish. See `~/.claude/skills/rust-release/SKILL.md` for the full workflow spec.
 
 ## Architecture
 
@@ -32,12 +48,14 @@ src/
 ├── curl.rs          # CurlRequest: builds reqwest Client/Request from form fields
 ├── editor.rs        # Editor: grapheme-aware text buffer with cursor (used by form fields)
 ├── error.rs         # AppError enum (thiserror + anyhow)
+├── export.rs        # CSV, HTML, ASCII, and terminal summary export for test reports
 ├── history.rs       # Persistent request history (JSON, XDG paths, best-effort I/O)
-├── stats.rs         # Stats (latencies, RPS, percentiles) + CircuitBreaker (Fibonacci backoff)
+├── stats.rs         # Stats, ReportData, percentiles, CircuitBreaker (Fibonacci backoff)
 └── tui/
-    ├── mod.rs       # Theme constants, RunResult enum, run_tui() (spawns worker + dashboard)
+    ├── mod.rs       # Theme constants (Whetstone design system), RunResult, run_tui()
     ├── form.rs      # Form phase: field editors, Tab/Enter/Esc, history cycling (Up/Down)
-    └── dashboard.rs # Dashboard phase: load_worker (async HTTP loop), run_loop (event + render)
+    ├── dashboard.rs # Dashboard phase: load_worker (async HTTP loop), run_loop (event + render)
+    └── report.rs    # Post-test report screen with export options (CSV/HTML/ASCII)
 ```
 
 Key data flow: `main.rs` loops between `run_form()` → `run_tui()`. `run_tui()` spawns `load_worker` as a tokio task that sends HTTP requests respecting concurrency/RPM limits and the circuit breaker, writing results into `Arc<RwLock<Stats>>`. The dashboard event loop reads stats to render the UI.
@@ -54,7 +72,8 @@ The circuit breaker uses Fibonacci backoff (1, 1, 2, 3, 5, 8… seconds, capped 
 
 ## CI
 
-GitHub Actions (`.github/workflows/rust.yml`): builds and tests on push/PR to main.
+- `.github/workflows/rust.yml` — builds and tests on push/PR to main (fmt, clippy, test)
+- `.github/workflows/release.yml` — triggered on push to main when `Cargo.toml` changes; reads version, verifies, cross-builds 4 targets (x86_64/aarch64 linux, x86_64/aarch64 macOS), creates git tag, GitHub Release with checksums, and publishes to crates.io
 
 ## History persistence
 
