@@ -7,6 +7,7 @@
 pub mod curl;
 pub mod editor;
 pub mod error;
+pub mod export;
 pub mod history;
 pub mod stats;
 pub mod tui;
@@ -15,5 +16,5 @@ pub use curl::CurlRequest;
 pub use editor::Editor;
 pub use error::AppError;
 pub use history::{add_to_history, load_history, save_history, HistoryEntry};
-pub use stats::{CircuitBreaker, CircuitState, ResponseLogEntry, Stats};
-pub use tui::{run_form, run_tui, RunResult};
+pub use stats::{CircuitBreaker, CircuitState, ReportData, ResponseLogEntry, Stats};
+pub use tui::{run_form, run_tui, RunResult, TestConfig};

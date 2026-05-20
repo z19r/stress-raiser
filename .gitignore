@@ -20,3 +20,16 @@ target
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 .cursor
+
+# Generated test output
+stress-raiser-*.html
+stress-raiser-*.csv
+
+# Tool configs
+.aider.conventions.md
+.windsurfrules
+.serena/
+.claude/
+
+# Reference files
+z19r-design-system.html

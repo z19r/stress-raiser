@@ -10,7 +10,7 @@ use std::path::PathBuf;
 const HISTORY_LEN: usize = 50;
 const HISTORY_FILE: &str = "stress-raiser/history.json";
 
-/// One saved form state (URL, method, headers, body, concurrency, RPM).
+/// One saved form state (URL, method, headers, body, concurrency, RPM, limits).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryEntry {
     pub url: String,
@@ -19,11 +19,25 @@ pub struct HistoryEntry {
     pub body: String,
     pub conc: usize,
     pub rpm: u64,
+    #[serde(default)]
+    pub total_requests: Option<u64>,
+    #[serde(default)]
+    pub duration_secs: Option<u64>,
 }
 
 impl HistoryEntry {
     /// Build a history entry from form field values.
-    pub fn new(url: &str, method: &str, headers: &str, body: &str, conc: usize, rpm: u64) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        url: &str,
+        method: &str,
+        headers: &str,
+        body: &str,
+        conc: usize,
+        rpm: u64,
+        total_requests: Option<u64>,
+        duration_secs: Option<u64>,
+    ) -> Self {
         Self {
             url: url.to_string(),
             method: method.to_string(),
@@ -31,6 +45,8 @@ impl HistoryEntry {
             body: body.to_string(),
             conc,
             rpm,
+            total_requests,
+            duration_secs,
         }
     }
 }
@@ -75,10 +91,86 @@ pub fn add_to_history(entries: &mut Vec<HistoryEntry>, new: HistoryEntry) {
             && e.headers == new.headers
             && e.body == new.body
             && e.conc == new.conc
-            && e.rpm == new.rpm)
+            && e.rpm == new.rpm
+            && e.total_requests == new.total_requests
+            && e.duration_secs == new.duration_secs)
     });
     entries.insert(0, new);
     if entries.len() > HISTORY_LEN {
         entries.truncate(HISTORY_LEN);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(url: &str, conc: usize) -> HistoryEntry {
+        HistoryEntry::new(url, "GET", "", "", conc, 100, None, None)
+    }
+
+    #[test]
+    fn add_prepends_to_front() {
+        let mut hist = vec![entry("http://a.com", 1)];
+        add_to_history(&mut hist, entry("http://b.com", 1));
+        assert_eq!(hist[0].url, "http://b.com");
+        assert_eq!(hist[1].url, "http://a.com");
+    }
+
+    #[test]
+    fn add_deduplicates_by_content() {
+        let mut hist = vec![entry("http://a.com", 1), entry("http://b.com", 1)];
+        add_to_history(&mut hist, entry("http://a.com", 1));
+        assert_eq!(hist.len(), 2);
+        assert_eq!(hist[0].url, "http://a.com");
+    }
+
+    #[test]
+    fn add_caps_at_history_len() {
+        let mut hist: Vec<HistoryEntry> = (0..HISTORY_LEN)
+            .map(|i| entry(&format!("http://{i}.com"), 1))
+            .collect();
+        add_to_history(&mut hist, entry("http://new.com", 1));
+        assert_eq!(hist.len(), HISTORY_LEN);
+        assert_eq!(hist[0].url, "http://new.com");
+    }
+
+    #[test]
+    fn new_preserves_all_fields() {
+        let e = HistoryEntry::new(
+            "http://x.com",
+            "POST",
+            "Content-Type: application/json",
+            "{\"key\":1}",
+            10,
+            500,
+            Some(1000),
+            Some(60),
+        );
+        assert_eq!(e.method, "POST");
+        assert_eq!(e.conc, 10);
+        assert_eq!(e.rpm, 500);
+        assert_eq!(e.total_requests, Some(1000));
+        assert_eq!(e.duration_secs, Some(60));
+    }
+
+    #[test]
+    fn serde_roundtrip() {
+        let e = HistoryEntry::new("http://x.com", "GET", "", "", 5, 100, Some(50), None);
+        let json = serde_json::to_string(&e).unwrap();
+        let parsed: HistoryEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.url, e.url);
+        assert_eq!(parsed.conc, e.conc);
+        assert_eq!(parsed.total_requests, Some(50));
+        assert_eq!(parsed.duration_secs, None);
+    }
+
+    #[test]
+    fn serde_missing_optional_fields_default() {
+        let json =
+            r#"{"url":"http://x.com","method":"GET","headers":"","body":"","conc":1,"rpm":10}"#;
+        let parsed: HistoryEntry = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.total_requests, None);
+        assert_eq!(parsed.duration_secs, None);
     }
 }
