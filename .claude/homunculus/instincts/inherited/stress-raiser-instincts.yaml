@@ -1,0 +1,449 @@
+# Instincts generated from https://github.com/z19r/stress-raiser
+# Generated: 2026-05-20T04:08:10.060Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: stress-raiser-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, docs, ci, fix
+
+## Evidence
+
+- 6 commits analyzed
+- Detected conventional commit pattern
+- Examples: feat: redesign TUI with Whetstone design system, ci: standardize release workflow and upgrade CI
+
+---
+id: stress-raiser-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Commit Length
+
+## Action
+
+Write moderate-length commit messages (~51 characters)
+
+## Evidence
+
+- Average commit message length: 51 chars
+- Based on 6 commits
+
+---
+id: stress-raiser-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: stress-raiser-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: stress-raiser-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: stress-raiser-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: stress-raiser-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~25x per month
+- Files: 
+
+---
+id: stress-raiser-workflow-feature-implementation-with-tui-and-stats
+trigger: "when doing feature implementation with tui and stats"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Workflow Feature Implementation With Tui And Stats
+
+## Action
+
+Follow the feature-implementation-with-tui-and-stats workflow:
+1. Modify or add files in src/tui/ (e.g., dashboard.rs, form.rs, report.rs, mod.rs) to update or extend the TUI.
+2. Update or create files in src/ (e.g., stats.rs, history.rs, export.rs) to handle new data, stats, or export logic.
+3. Update src/main.rs and/or src/lib.rs to wire up new features or data flows.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/tui/dashboard.rs, src/tui/form.rs, src/tui/report.rs
+
+---
+id: stress-raiser-workflow-documentation-update-for-architecture-or-workflows
+trigger: "when doing documentation update for architecture or workflows"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/z19r/stress-raiser
+---
+
+# Stress Raiser Workflow Documentation Update For Architecture Or Workflows
+
+## Action
+
+Follow the documentation-update-for-architecture-or-workflows workflow:
+1. Add or update markdown documentation files (e.g., CLAUDE.md, AGENTS.md, STACK-SETUP.md).
+2. Update Copilot or contributor instructions if needed.
+3. Reflect new modules or workflows in architecture docs.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: CLAUDE.md, AGENTS.md, STACK-SETUP.md
+
+---
+id: stress-raiser-instinct-naming-files
+trigger: "When creating or renaming a source file"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Naming Files
+
+## Action
+
+Use camelCase for file names
+
+## Evidence
+
+- Pattern in src/history.rs, src/lib.rs, src/main.rs, src/stats.rs
+
+---
+id: stress-raiser-instinct-naming-functions
+trigger: "When defining a function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Naming Functions
+
+## Action
+
+Use camelCase for function names
+
+## Evidence
+
+- Pattern in Rust codebase, codeStyle.namingConventions.functions
+
+---
+id: stress-raiser-instinct-naming-classes
+trigger: "When defining a struct or class"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Naming Classes
+
+## Action
+
+Use PascalCase for struct/class names
+
+## Evidence
+
+- Pattern in Rust codebase, codeStyle.namingConventions.classes
+
+---
+id: stress-raiser-instinct-naming-constants
+trigger: "When defining a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Naming Constants
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names
+
+## Evidence
+
+- Pattern in Rust codebase, codeStyle.namingConventions.constants
+
+---
+id: stress-raiser-instinct-import-style
+trigger: "When importing modules"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Import Style
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- codeStyle.importStyle: relative
+
+---
+id: stress-raiser-instinct-export-style
+trigger: "When exporting modules or functions"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- codeStyle.exportStyle: named
+
+---
+id: stress-raiser-instinct-test-location
+trigger: "When adding tests for a feature"
+confidence: 0.75
+domain: testing
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Test Location
+
+## Action
+
+Place tests in a separate test location, not inline with source files
+
+## Evidence
+
+- architecture.folderStructure.testLocation: separate
+
+---
+id: stress-raiser-instinct-test-after-feature
+trigger: "When implementing a new feature"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Test After Feature
+
+## Action
+
+Add tests for the feature immediately after implementation
+
+## Evidence
+
+- feature-development workflow: 'Add tests for feature' follows 'Add feature implementation'
+
+---
+id: stress-raiser-instinct-commit-format
+trigger: "When making a git commit"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Commit Format
+
+## Action
+
+Use conventional commit format: <type>: <description> (e.g., feat: add new export screen)
+
+## Evidence
+
+- commits.examples
+- commits.prefixes: feat, docs, ci, fix
+
+---
+id: stress-raiser-instinct-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Commit Length
+
+## Action
+
+Keep the commit message around 50 characters
+
+## Evidence
+
+- commits.averageLength: 51
+
+---
+id: stress-raiser-instinct-feature-tui-stats
+trigger: "When adding or enhancing a feature that affects both the TUI and statistics/history logic"
+confidence: 0.92
+domain: workflow
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Feature Tui Stats
+
+## Action
+
+Modify or add files in src/tui/, update or create stats/history/export logic in src/, and wire up changes in main.rs/lib.rs
+
+## Evidence
+
+- feature-implementation-with-tui-and-stats workflow
+- files: src/tui/dashboard.rs, src/history.rs, src/stats.rs, src/export.rs, src/main.rs, src/lib.rs
+
+---
+id: stress-raiser-instinct-update-docs-after-feature-or-ci
+trigger: "When a new feature or CI change is added"
+confidence: 0.88
+domain: workflow
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Update Docs After Feature Or Ci
+
+## Action
+
+Update or add documentation files (e.g., CLAUDE.md, AGENTS.md, STACK-SETUP.md, .github/copilot-instructions.md)
+
+## Evidence
+
+- documentation-update-for-architecture-or-workflows workflow
+- commits: docs: update CLAUDE.md with current architecture and release workflow
+
+---
+id: stress-raiser-instinct-feature-workflow-sequence
+trigger: "When developing a new feature"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: z19r/stress-raiser
+---
+
+# Stress Raiser Instinct Feature Workflow Sequence
+
+## Action
+
+Follow the sequence: implement feature → add tests → update documentation
+
+## Evidence
+
+- feature-development workflow.commitSequence
+
