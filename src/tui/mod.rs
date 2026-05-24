@@ -101,6 +101,50 @@ pub(super) fn render_thin_shadow(
     }
 }
 
+pub(super) const MIN_WIDTH: u16 = 80;
+pub(super) const MIN_HEIGHT: u16 = 30;
+
+pub(super) fn is_too_small(area: ratatui::prelude::Rect) -> bool {
+    area.width < MIN_WIDTH || area.height < MIN_HEIGHT
+}
+
+pub(super) fn render_too_small(f: &mut ratatui::Frame) {
+    use ratatui::prelude::*;
+    use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
+
+    let full = f.area();
+    f.render_widget(Block::default().style(Style::default().bg(BG)), full);
+
+    let w: u16 = 44;
+    let h: u16 = 5;
+    let x = full.width.saturating_sub(w) / 2;
+    let y = full.height.saturating_sub(h) / 2;
+    let modal = Rect::new(x, y, w.min(full.width), h.min(full.height));
+
+    f.render_widget(Clear, modal);
+    render_thin_shadow(f, modal, ACCENT);
+
+    let body = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            " Terminal too small \u{2014} resize to continue",
+            Style::default().fg(ERROR).bold(),
+        )),
+        Line::from(Span::styled(
+            format!(" (need {}×{})", MIN_WIDTH, MIN_HEIGHT),
+            Style::default().fg(MUTED),
+        )),
+    ];
+    let para = Paragraph::new(body).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain)
+            .border_style(Style::default().fg(ERROR))
+            .style(Style::default().bg(BG)),
+    );
+    f.render_widget(para, modal);
+}
+
 /// Draw a centered "Are you sure?" modal and wait for y/n.  Returns true if confirmed.
 pub(super) fn confirm_quit(terminal: &mut ratatui::DefaultTerminal) -> bool {
     use crossterm::event::{self, Event, KeyCode, KeyEventKind};
