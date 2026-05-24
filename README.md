@@ -86,15 +86,87 @@ Persistence is best-effort; missing or invalid files are ignored.
 Enter a URL (e.g. `https://example.com`) in the URL field, choose method (GET,
 POST, etc.), add headers and body in their fields, then start the load test.
 
-## Publishing to crates.io
+## Releasing a new version
 
-1. Set `repository`, `homepage`, and optionally `authors` in `Cargo.toml`.
-2. Log in once: `cargo login` (use a token from crates.io → Account Settings).
-3. Run the gate: `just publish-check` (fmt, clippy, tests, dry-run).
-4. Publish: `just publish`.
+Prerequisites: [cargo-edit](https://github.com/killercup/cargo-edit) (`cargo install cargo-edit`) and [gh](https://cli.github.com/).
 
-Optional: `just package` builds the `.crate` in `target/package/` for
-inspection before uploading.
+### 1. Run the quality gate
+
+```bash
+just release-check
+```
+
+Runs `cargo fmt --check`, `cargo clippy -- -D warnings`, and `cargo test`.
+Fix anything that fails before continuing.
+
+### 2. Preview the release (optional)
+
+```bash
+just release-dry-run patch   # or minor / major
+```
+
+Shows the current version, the bump level, and re-runs the quality gate.
+No files are changed.
+
+### 3. Cut the release
+
+```bash
+just release patch           # or minor / major
+```
+
+This will:
+- Verify you're on `main` with a clean tree
+- Pull latest from origin
+- Bump the version in `Cargo.toml` + `Cargo.lock`
+- Create a `release/vX.Y.Z` branch
+- Commit and push the branch
+- Open a PR via `gh pr create`
+
+### 4. Watch CI on the PR
+
+```bash
+gh pr checks
+```
+
+Wait for all checks to pass (fmt, clippy, tests).
+
+### 5. Merge the PR
+
+```bash
+gh pr merge --squash --delete-branch
+```
+
+### 6. Watch the release workflow
+
+```bash
+gh run watch
+```
+
+Once the PR merges to `main` and CI detects the `Cargo.toml` version change,
+the release workflow automatically:
+
+1. Reads the version and checks the tag doesn't already exist
+2. Runs the full quality gate again
+3. Cross-compiles for 4 targets (x86_64/aarch64 Linux, x86_64/aarch64 macOS)
+4. Creates a git tag `vX.Y.Z`
+5. Publishes a GitHub Release with tarballs + SHA256 checksums
+6. Publishes to [crates.io](https://crates.io/crates/stress-raiser)
+
+### 7. Verify
+
+```bash
+gh release view                     # check the GitHub release
+cargo install stress-raiser         # install from crates.io
+stress-raiser --version             # confirm the new version
+```
+
+### Version bump levels
+
+| Level   | When to use                                      | Example        |
+| ------- | ------------------------------------------------ | -------------- |
+| `patch` | Bug fixes, minor UI tweaks, docs                 | 1.2.1 → 1.2.2 |
+| `minor` | New features, non-breaking changes               | 1.2.2 → 1.3.0 |
+| `major` | Breaking changes (CLI flags, config, public API) | 1.3.0 → 2.0.0 |
 
 ## Development
 
