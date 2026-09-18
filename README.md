@@ -33,6 +33,17 @@ cargo build --release
 All development and run tasks use [just](https://github.com/casey/just); run
 `just` with no arguments to start the app.
 
+### Verifying a release download
+
+Release archives carry [GitHub build provenance](https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds),
+so you can confirm a tarball was built by this repo's release workflow:
+
+```bash
+gh attestation verify stress-raiser-x86_64-unknown-linux-gnu.tar.gz \
+  --repo z19r/stress-raiser
+sha256sum -c SHA256SUMS.txt
+```
+
 ## Usage
 
 Run with no CLI arguments:
@@ -149,8 +160,9 @@ the release workflow automatically:
 2. Runs the full quality gate again
 3. Cross-compiles for 4 targets (x86_64/aarch64 Linux, x86_64/aarch64 macOS)
 4. Creates a git tag `vX.Y.Z`
-5. Publishes a GitHub Release with tarballs + SHA256 checksums
-6. Publishes to [crates.io](https://crates.io/crates/stress-raiser)
+5. Attests build provenance for every archive and the checksum file
+6. Publishes a GitHub Release with tarballs + SHA256 checksums
+7. Publishes to [crates.io](https://crates.io/crates/stress-raiser)
 
 ### 7. Verify
 
