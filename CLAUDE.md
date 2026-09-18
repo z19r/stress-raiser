@@ -37,7 +37,7 @@ gh pr merge --squash --delete-branch
 gh run watch                    # watch release workflow
 ```
 
-CI (`release.yml`) handles: tag creation, cross-platform builds (4 targets), GitHub Release with checksums, and crates.io publish. See `~/.claude/skills/rust-release/SKILL.md` for the full workflow spec.
+CI (`release.yml`) handles: tag creation, cross-platform builds (4 targets), build provenance attestations, GitHub Release with checksums, and crates.io publish. See `~/.claude/skills/rust-release/SKILL.md` for the full workflow spec.
 
 ## Architecture
 
@@ -73,7 +73,7 @@ The circuit breaker uses Fibonacci backoff (1, 1, 2, 3, 5, 8… seconds, capped 
 ## CI
 
 - `.github/workflows/rust.yml` — builds and tests on push/PR to main (fmt, clippy, test)
-- `.github/workflows/release.yml` — triggered on push to main when `Cargo.toml` changes; reads version, verifies, cross-builds 4 targets (x86_64/aarch64 linux, x86_64/aarch64 macOS), creates git tag, GitHub Release with checksums, and publishes to crates.io
+- `.github/workflows/release.yml` — triggered on push to main when `Cargo.toml` changes; reads version, verifies, cross-builds 4 targets (x86_64/aarch64 linux, x86_64/aarch64 macOS), creates git tag, attests build provenance for all release artifacts, GitHub Release with checksums, and publishes to crates.io
 
 ## History persistence
 
@@ -111,3 +111,14 @@ icm health                                # topic hygiene audit
 icm topics                                # list all topics
 ```
 <!-- icm:end -->
+
+<!-- rtk-instructions v2 -->
+# Command output
+
+Command output here is condensed to save tokens, keeping every signal and
+dropping costly noise. Treat it as the complete result: run commands
+normally, and batch related commands into one call to avoid extra turns.
+Truncated results state their recovery path in their own output. Re-run a
+command as `rtk proxy <cmd>` only when its result is unusable: empty when
+output was clearly expected, contradicting its exit code, or garbled.
+<!-- /rtk-instructions -->
