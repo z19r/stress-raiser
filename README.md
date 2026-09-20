@@ -1,5 +1,7 @@
 # stress-raiser
 
+[![Monitored by Cooper&Wright](https://img.shields.io/badge/monitored%20by-Cooper%26Wright-8a6a3b?style=flat-square)](https://cooperwright.com)
+
 Beautiful Rust stress tester with a form (URL, method, headers, body) and a
 live TUI: stats, circuit breaker, and sparklines.
 
